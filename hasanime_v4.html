@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="tr" data-lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#070711">
+<title>HasAnime v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#070711; --surface:#0f0f1e; --card:#13132a;
+  --border:rgba(255,255,255,0.07); --accent:#e63946;
+  --gold:#ffd60a; --cyan:#00f5d4; --purple:#7b2fff;
+  --green:#00e676; --text:#eaeaea; --muted:rgba(234,234,234,0.5);
+  --nav-h:60px; --bottom-h:64px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;overflow-x:hidden;padding-bottom:var(--bottom-h);}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(123,47,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(123,47,255,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* TOP HEADER */
+header{position:sticky;top:0;z-index:100;background:rgba(7,7,17,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:var(--nav-h);}
+.logo{font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo span{-webkit-text-fill-color:var(--cyan);}
+.header-right{display:flex;align-items:center;gap:10px;}
+.lang-btn{background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text);font-size:0.8rem;font-weight:700;cursor:pointer;transition:all 0.2s;}
+.lang-btn:hover{background:rgba(255,255,255,0.15);}
+.random-btn{background:var(--purple);border:none;border-radius:8px;width:36px;height:36px;color:white;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
+.random-btn:hover{background:#9b3fff;transform:scale(1.05);}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(7,7,17,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;height:var(--bottom-h);safe-area-inset-bottom:env(safe-area-inset-bottom);}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:all 0.2s;padding:8px 4px;border:none;background:transparent;color:var(--muted);font-size:0.6rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;font-family:'Noto Sans JP',sans-serif;}
+.nav-item.active{color:var(--accent);}
+.nav-item .icon{font-size:1.3rem;}
+.nav-badge{position:absolute;top:-2px;right:-4px;background:var(--accent);color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;display:flex;align-items:center;justify-content:center;font-weight:900;}
+.nav-icon-wrap{position:relative;}
+
+/* PAGES */
+.page{display:none;position:relative;z-index:1;min-height:calc(100vh - var(--nav-h) - var(--bottom-h));padding:16px;}
+.page.active{display:block;}
+
+/* SEARCH BAR */
+.search-bar{display:flex;gap:8px;margin-bottom:16px;}
+.search-bar input{flex:1;background:var(--card);border:2px solid var(--border);border-radius:14px;padding:12px 16px;color:var(--text);font-size:0.95rem;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color 0.3s;}
+.search-bar input:focus{border-color:var(--accent);}
+.search-bar input::placeholder{color:var(--muted);}
+.search-bar button{background:var(--accent);border:none;border-radius:14px;padding:0 16px;color:white;font-size:1.1rem;cursor:pointer;}
+
+/* SEARCH DROPDOWN */
+.search-dropdown{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:none;margin-bottom:16px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
+.search-dropdown.show{display:block;}
+.sdrop-item{display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.2s;}
+.sdrop-item:last-child{border-bottom:none;}
+.sdrop-item:hover{background:rgba(255,255,255,0.05);}
+.sdrop-img{width:36px;height:50px;object-fit:cover;border-radius:6px;background:var(--surface);flex-shrink:0;}
+.sdrop-info h4{font-size:0.85rem;font-weight:700;margin-bottom:2px;}
+.sdrop-info p{font-size:0.72rem;color:var(--muted);}
+.sdrop-score{margin-left:auto;color:var(--gold);font-size:0.85rem;font-weight:700;flex-shrink:0;}
+
+/* SECTION */
+.section-title{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.dot{width:7px;height:7px;border-radius:50%;animation:pulse 2s ease infinite;}
+.dot-red{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.dot-gold{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+.dot-cyan{background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+.dot-green{background:var(--green);box-shadow:0 0 8px var(--green);}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+
+/* TABS */
+.tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:7px 16px;border-radius:100px;font-size:0.75rem;font-weight:700;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s;border:2px solid var(--border);color:var(--muted);background:transparent;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;}
+.tab.active{border-color:var(--accent);color:var(--accent);background:rgba(230,57,70,0.1);}
+
+/* ANIME GRID - mobile optimized */
+.anime-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+@media(min-width:480px){.anime-grid{grid-template-columns:repeat(4,1fr);}}
+.anime-card{background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:transform 0.2s,border-color 0.2s;position:relative;active:scale(0.97);}
+.anime-card:active{transform:scale(0.97);}
+.anime-rank{position:absolute;top:6px;left:6px;z-index:2;font-family:'Orbitron',monospace;font-size:0.62rem;font-weight:900;padding:2px 7px;border-radius:100px;}
+.fav-btn{position:absolute;top:6px;right:6px;z-index:2;background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:28px;height:28px;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
+.fav-btn.active{background:rgba(230,57,70,0.8);}
+.rank-gold{background:var(--gold);color:#000;}
+.rank-silver{background:#c0c0c0;color:#000;}
+.rank-bronze{background:#cd7f32;color:#fff;}
+.rank-def{background:var(--accent);color:#fff;}
+.anime-thumb{width:100%;aspect-ratio:2/3;object-fit:cover;background:var(--surface);display:block;}
+.anime-thumb-ph{width:100%;aspect-ratio:2/3;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:2.5rem;}
+.anime-info{padding:8px;}
+.anime-info h3{font-size:0.72rem;font-weight:700;margin-bottom:4px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.anime-score{color:var(--gold);font-size:0.7rem;font-weight:700;}
+
+/* TRENDING LIST */
+.trend-list{display:flex;flex-direction:column;gap:10px;}
+.trend-item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 12px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.trend-item:active{transform:scale(0.98);}
+.trend-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);transform:scaleY(0);transition:transform 0.3s;}
+.trend-item:hover::before{transform:scaleY(1);}
+.trend-num{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;color:rgba(255,255,255,0.1);min-width:28px;}
+.trend-item:nth-child(1) .trend-num{color:var(--gold);}
+.trend-item:nth-child(2) .trend-num{color:#c0c0c0;}
+.trend-item:nth-child(3) .trend-num{color:#cd7f32;}
+.trend-img{width:42px;height:58px;object-fit:cover;border-radius:8px;background:var(--surface);flex-shrink:0;}
+.trend-img-ph{width:42px;height:58px;border-radius:8px;background:var(--surface);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5rem;}
+.trend-info{flex:1;min-width:0;}
+.trend-info h3{font-size:0.85rem;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.trend-info p{font-size:0.7rem;color:var(--muted);}
+.trend-badges{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;}
+.badge{font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:100px;}
+.badge-r{background:rgba(230,57,70,0.15);color:var(--accent);border:1px solid rgba(230,57,70,0.3);}
+.badge-c{background:rgba(0,245,212,0.1);color:var(--cyan);border:1px solid rgba(0,245,212,0.2);}
+.badge-g{background:rgba(255,214,10,0.1);color:var(--gold);border:1px solid rgba(255,214,10,0.2);}
+.trend-score{text-align:right;flex-shrink:0;}
+.trend-score .sc{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:900;color:var(--gold);}
+.trend-score .lb{font-size:0.6rem;color:var(--muted);}
+.trend-fav{background:none;border:none;font-size:1rem;cursor:pointer;margin-left:4px;}
+
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--muted);font-size:0.85rem;}
+.spinner{width:24px;height:24px;border-radius:50%;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--accent);animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:200;display:none;align-items:flex-end;padding:0;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--surface);border:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;width:100%;max-height:92vh;overflow-y:auto;position:relative;animation:slideUp 0.35s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;margin:12px auto 0;}
+.modal-close{position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:32px;height:32px;color:var(--text);font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+.modal-banner{width:100%;height:180px;object-fit:cover;object-position:top;display:block;}
+.modal-banner-ph{width:100%;height:140px;background:linear-gradient(135deg,#1a0a2e,#0d1b2a);display:flex;align-items:center;justify-content:center;font-size:4rem;}
+
+.modal-hero{display:flex;gap:16px;padding:16px;margin-top:-50px;position:relative;}
+.modal-poster{width:110px;min-width:110px;height:160px;object-fit:cover;border-radius:12px;border:3px solid var(--surface);box-shadow:0 8px 30px rgba(0,0,0,0.5);flex-shrink:0;background:var(--card);}
+.modal-poster-ph{width:110px;min-width:110px;height:160px;border-radius:12px;background:var(--card);border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-size:3rem;flex-shrink:0;}
+.modal-meta{flex:1;padding-top:54px;}
+.modal-meta h2{font-family:'Orbitron',monospace;font-size:1rem;font-weight:900;margin-bottom:3px;line-height:1.3;}
+.modal-meta .jp{color:var(--muted);font-size:0.78rem;margin-bottom:10px;}
+.modal-scores{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.score-box{background:var(--card);border-radius:10px;padding:8px 12px;text-align:center;border:1px solid var(--border);}
+.score-box .val{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;}
+.score-box .lbl{font-size:0.6rem;color:var(--muted);margin-top:1px;}
+.gold-box .val{color:var(--gold);}
+.cyan-box .val{color:var(--cyan);}
+.red-box .val{color:var(--accent);}
+.modal-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+.modal-desc{font-size:0.82rem;color:var(--muted);line-height:1.8;}
+.modal-fav-btn{display:flex;align-items:center;gap:8px;background:rgba(230,57,70,0.1);border:2px solid rgba(230,57,70,0.3);border-radius:12px;padding:10px 16px;color:var(--accent);font-size:0.85rem;font-weight:700;cursor:pointer;margin:12px 16px 0;width:calc(100% - 32px);justify-content:center;font-family:'Noto Sans JP',sans-serif;transition:all 0.2s;}
+.modal-fav-btn.active{background:rgba(230,57,70,0.25);border-color:var(--accent);}
+
+.modal-body{padding:0 16px 24px;}
+.modal-section{font-family:'Orbitron',monospace;font-size:0.75rem;font-weight:700;color:var(--cyan);letter-spacing:0.1em;text-transform:uppercase;margin:20px 0 12px;display:flex;align-items:center;gap:8px;}
+.modal-section::after{content:'';flex:1;height:1px;background:linear-gradient(to right,var(--cyan),transparent);opacity:0.3;}
+
+.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.info-item{background:var(--card);border-radius:10px;padding:10px;border:1px solid var(--border);}
+.info-item .key{font-size:0.6rem;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px;}
+.info-item .val{font-size:0.82rem;font-weight:700;}
+
+/* STAT BARS */
+.stat-bars{display:flex;flex-direction:column;gap:8px;}
+.stat-bar-row{display:flex;align-items:center;gap:10px;}
+.stat-bar-label{font-size:0.72rem;color:var(--muted);min-width:80px;text-align:right;}
+.stat-bar-track{flex:1;height:5px;background:rgba(255,255,255,0.07);border-radius:100px;overflow:hidden;}
+.stat-bar-fill{height:100%;border-radius:100px;background:linear-gradient(to right,var(--accent),var(--gold));}
+.stat-bar-val{font-size:0.7rem;font-weight:700;min-width:28px;}
+
+/* CHARACTERS */
+.char-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none;}
+.char-scroll::-webkit-scrollbar{display:none;}
+.char-card{background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all 0.2s;flex-shrink:0;width:110px;}
+.char-card:active{transform:scale(0.97);}
+.char-img{width:100%;height:120px;object-fit:cover;object-position:top;background:var(--surface);display:block;}
+.char-img-ph{width:100%;height:120px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:2.5rem;}
+.char-info{padding:8px;}
+.char-info h4{font-size:0.72rem;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.char-info p{font-size:0.65rem;color:var(--muted);}
+.char-role{font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:100px;display:inline-block;margin-top:4px;}
+.role-main{background:rgba(230,57,70,0.15);color:var(--accent);}
+.role-sup{background:rgba(123,47,255,0.15);color:#a96fff;}
+.role-vil{background:rgba(0,0,0,0.4);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3);}
+
+/* CHARACTER DETAIL MODAL */
+.char-detail{background:var(--card);border-radius:16px;padding:16px;margin-top:12px;border:1px solid var(--border);}
+.char-detail-header{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;}
+.char-detail-img{width:80px;height:110px;object-fit:cover;object-position:top;border-radius:10px;background:var(--surface);}
+.char-detail-img-ph{width:80px;height:110px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:2.5rem;flex-shrink:0;}
+.char-detail-meta h3{font-size:1rem;font-weight:700;margin-bottom:4px;}
+.char-detail-meta p{font-size:0.78rem;color:var(--muted);margin-bottom:6px;}
+.skill-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
+.skill-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 10px;}
+.skill-icon{font-size:1rem;flex-shrink:0;}
+.skill-text{flex:1;}
+.skill-text .sn{font-size:0.8rem;font-weight:700;margin-bottom:1px;}
+.skill-text .sd{font-size:0.7rem;color:var(--muted);}
+.skill-power{font-family:'Orbitron',monospace;font-size:0.75rem;font-weight:900;color:var(--gold);}
+.char-story{font-size:0.82rem;color:var(--muted);line-height:1.8;margin-top:10px;}
+
+/* COMPARE */
+.compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.compare-slot{background:var(--card);border:2px dashed var(--border);border-radius:16px;padding:12px;text-align:center;cursor:pointer;transition:all 0.2s;min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
+.compare-slot.filled{border-style:solid;border-color:rgba(0,245,212,0.3);}
+.compare-slot img{width:60px;height:85px;object-fit:cover;border-radius:8px;}
+.compare-slot h4{font-size:0.78rem;font-weight:700;margin-top:4px;}
+.compare-slot p{font-size:0.68rem;color:var(--muted);}
+.compare-slot .remove-btn{background:rgba(230,57,70,0.2);border:1px solid var(--accent);border-radius:6px;padding:3px 8px;font-size:0.65rem;color:var(--accent);cursor:pointer;margin-top:4px;}
+.compare-vs{display:flex;align-items:center;justify-content:center;font-family:'Orbitron',monospace;font-size:1.2rem;font-weight:900;color:var(--accent);position:absolute;left:50%;transform:translateX(-50%);}
+.compare-result{background:var(--card);border-radius:16px;padding:16px;border:1px solid var(--border);}
+.compare-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:10px;}
+.compare-val{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:900;text-align:center;}
+.compare-label{font-size:0.7rem;color:var(--muted);text-align:center;}
+.compare-win{color:var(--green);}
+.compare-lose{color:var(--muted);opacity:0.5;}
+
+/* CALENDAR */
+.cal-day{background:var(--card);border-radius:14px;padding:12px;margin-bottom:10px;border:1px solid var(--border);}
+.cal-day-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.cal-day-name{font-family:'Orbitron',monospace;font-size:0.8rem;font-weight:700;color:var(--cyan);}
+.cal-day-badge{background:rgba(0,245,212,0.1);border:1px solid rgba(0,245,212,0.2);color:var(--cyan);padding:2px 8px;border-radius:100px;font-size:0.65rem;font-weight:700;}
+.cal-anime{display:flex;align-items:center;gap:10px;padding:8px;background:rgba(255,255,255,0.03);border-radius:10px;margin-bottom:6px;cursor:pointer;}
+.cal-anime:last-child{margin-bottom:0;}
+.cal-anime img{width:36px;height:50px;object-fit:cover;border-radius:6px;background:var(--surface);}
+.cal-anime-info h4{font-size:0.8rem;font-weight:700;margin-bottom:2px;}
+.cal-anime-info p{font-size:0.68rem;color:var(--muted);}
+.cal-ep{margin-left:auto;background:var(--accent);color:white;border-radius:8px;padding:3px 8px;font-size:0.65rem;font-weight:700;flex-shrink:0;}
+.cal-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:30px;color:var(--muted);font-size:0.82rem;}
+
+/* FAVORITES PAGE */
+.fav-empty{text-align:center;padding:60px 20px;}
+.fav-empty .emoji{font-size:4rem;margin-bottom:16px;}
+.fav-empty h3{font-size:1.1rem;font-weight:700;margin-bottom:8px;}
+.fav-empty p{color:var(--muted);font-size:0.85rem;}
+.fav-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;}
+.fav-stat{background:var(--card);border-radius:12px;padding:12px;text-align:center;border:1px solid var(--border);}
+.fav-stat .val{font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:900;color:var(--accent);}
+.fav-stat .lbl{font-size:0.65rem;color:var(--muted);margin-top:2px;}
+
+/* PROFILE / LOGIN */
+.auth-wrap{max-width:400px;margin:0 auto;padding:10px 0;}
+.auth-tabs{display:flex;background:var(--card);border-radius:14px;padding:4px;margin-bottom:20px;border:1px solid var(--border);}
+.auth-tab{flex:1;padding:10px;text-align:center;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.85rem;transition:all 0.2s;border:none;background:transparent;color:var(--muted);font-family:'Noto Sans JP',sans-serif;}
+.auth-tab.active{background:var(--accent);color:white;}
+.auth-form{display:flex;flex-direction:column;gap:12px;}
+.auth-input{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--text);font-size:0.9rem;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color 0.3s;width:100%;}
+.auth-input:focus{border-color:var(--accent);}
+.auth-input::placeholder{color:var(--muted);}
+.auth-btn{background:var(--accent);border:none;border-radius:12px;padding:14px;color:white;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.2s;width:100%;}
+.auth-btn:hover{background:#c1121f;}
+.auth-divider{text-align:center;color:var(--muted);font-size:0.8rem;position:relative;margin:4px 0;}
+.auth-divider::before,.auth-divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--border);}
+.auth-divider::before{left:0;}.auth-divider::after{right:0;}
+.profile-card{background:var(--card);border-radius:20px;padding:24px;text-align:center;border:1px solid var(--border);margin-bottom:16px;}
+.profile-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--gold));display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 12px;}
+.profile-name{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;margin-bottom:4px;}
+.profile-email{font-size:0.78rem;color:var(--muted);margin-bottom:16px;}
+.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+.profile-stat{background:var(--surface);border-radius:10px;padding:10px;text-align:center;}
+.profile-stat .val{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;color:var(--accent);}
+.profile-stat .lbl{font-size:0.62rem;color:var(--muted);margin-top:2px;}
+.profile-menu{display:flex;flex-direction:column;gap:8px;}
+.profile-menu-item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all 0.2s;}
+.profile-menu-item:hover{background:rgba(255,255,255,0.05);}
+.profile-menu-item .mi-icon{font-size:1.2rem;width:28px;text-align:center;}
+.profile-menu-item .mi-text{flex:1;font-size:0.88rem;font-weight:700;}
+.profile-menu-item .mi-arrow{color:var(--muted);font-size:0.8rem;}
+.logout-btn{background:rgba(230,57,70,0.1);border:2px solid rgba(230,57,70,0.3);border-radius:12px;padding:14px;color:var(--accent);font-size:0.9rem;font-weight:700;cursor:pointer;width:100%;font-family:'Noto Sans JP',sans-serif;margin-top:8px;transition:all 0.2s;}
+.logout-btn:hover{background:rgba(230,57,70,0.2);}
+.auth-error{background:rgba(230,57,70,0.1);border:1px solid rgba(230,57,70,0.3);border-radius:10px;padding:10px 14px;font-size:0.82rem;color:var(--accent);display:none;}
+.auth-success{background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:10px 14px;font-size:0.82rem;color:var(--green);display:none;}
+.anime-rank-badge{background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:900;}
+
+.lang-modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
+.lang-modal.show{display:flex;}
+.lang-box{background:var(--surface);border-radius:20px;padding:24px;width:100%;max-width:320px;border:1px solid var(--border);}
+.lang-box h3{font-family:'Orbitron',monospace;font-size:1rem;font-weight:700;text-align:center;margin-bottom:16px;}
+.lang-option{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;cursor:pointer;transition:background 0.2s;margin-bottom:8px;}
+.lang-option:hover{background:rgba(255,255,255,0.05);}
+.lang-option.active{background:rgba(0,245,212,0.1);border:1px solid rgba(0,245,212,0.2);}
+.lang-flag{font-size:1.5rem;}
+.lang-name{font-weight:700;font-size:0.9rem;}
+.lang-native{font-size:0.75rem;color:var(--muted);}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(var(--bottom-h) + 12px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 20px;font-size:0.85rem;font-weight:700;z-index:500;opacity:0;transition:all 0.3s;white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Has<span>Anime</span></div>
+  <div class="header-right">
+    <button class="lang-btn" onclick="openLang()" title="Dil Seç">🌐 <span id="langLabel">TR</span></button>
+    <button class="random-btn" onclick="randomAnime()" title="Rastgele Anime">🎲</button>
+  </div>
+</header>
+
+<!-- PAGES -->
+
+<!-- 🏠 ANASAYFA -->
+<div class="page active" id="page-home">
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Anime ara..." autocomplete="off">
+    <button onclick="doSearch()">🔍</button>
+  </div>
+  <div class="search-dropdown" id="searchDrop"></div>
+
+  <div class="section-title"><div class="dot dot-gold"></div><span data-i18n="top">IMDb Top 12</span></div>
+  <div id="topGrid"><div class="loading"><div class="spinner"></div></div></div>
+
+  <br>
+  <div class="section-title"><div class="dot dot-red"></div><span data-i18n="trending">Trend Animeler 🔥</span></div>
+  <div class="tabs">
+    <button class="tab active" onclick="loadTrend(this,'bypopularity')" data-i18n="popular">En Popüler</button>
+    <button class="tab" onclick="loadTrend(this,'airing')" data-i18n="airing">Yayında</button>
+    <button class="tab" onclick="loadTrend(this,'favorite')" data-i18n="favorites2">Favoriler</button>
+  </div>
+  <div id="trendList"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ❤️ FAVORİLER -->
+<div class="page" id="page-favs">
+  <div class="section-title"><div class="dot dot-red"></div><span data-i18n="myFavs">Favorilerim ❤️</span></div>
+  <div id="favStats" class="fav-stats"></div>
+  <div id="favGrid"></div>
+</div>
+
+<!-- 📅 TAKVİM -->
+<div class="page" id="page-cal">
+  <div class="section-title"><div class="dot dot-cyan"></div><span data-i18n="schedule">Yayın Takvimi 📅</span></div>
+  <div id="calContent"><div class="cal-loading"><div class="spinner"></div><span data-i18n="loading">Yükleniyor...</span></div></div>
+</div>
+
+<!-- ⚔️ KARŞILAŞTIR -->
+<div class="page" id="page-compare">
+  <div class="section-title"><div class="dot dot-gold"></div><span data-i18n="compare">Anime Karşılaştır ⚔️</span></div>
+  <p style="font-size:0.8rem;color:var(--muted);margin-bottom:14px;" data-i18n="compareDesc">İki anime seç, hangisi daha iyi?</p>
+  <div style="position:relative;">
+    <div class="compare-wrap">
+      <div class="compare-slot" id="slot1" onclick="openSlotSearch(1)">
+        <div style="font-size:2rem">➕</div>
+        <p style="font-size:0.78rem;color:var(--muted);" data-i18n="selectAnime">Anime Seç</p>
+      </div>
+      <div class="compare-slot" id="slot2" onclick="openSlotSearch(2)">
+        <div style="font-size:2rem">➕</div>
+        <p style="font-size:0.78rem;color:var(--muted);" data-i18n="selectAnime">Anime Seç</p>
+      </div>
+    </div>
+  </div>
+  <div id="compareResult"></div>
+
+  <!-- slot search -->
+  <div id="slotSearchWrap" style="display:none;margin-top:12px;">
+    <div class="search-bar">
+      <input type="text" id="slotSearchInput" placeholder="Anime ara..." autocomplete="off">
+      <button onclick="cancelSlot()" style="background:var(--muted);">✕</button>
+    </div>
+    <div id="slotDrop"></div>
+  </div>
+</div>
+
+<!-- 👤 PROFİL / LOGIN -->
+<div class="page" id="page-profile">
+  <div id="profileContent"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="goPage('home',this)">
+    <div class="nav-icon-wrap"><span class="icon">🏠</span></div>
+    <span data-i18n="home">Anasayfa</span>
+  </button>
+  <button class="nav-item" onclick="goPage('favs',this)">
+    <div class="nav-icon-wrap">
+      <span class="icon">❤️</span>
+      <span class="nav-badge" id="favBadge" style="display:none">0</span>
+    </div>
+    <span data-i18n="favs">Favoriler</span>
+  </button>
+  <button class="nav-item" onclick="goPage('cal',this)">
+    <div class="nav-icon-wrap"><span class="icon">📅</span></div>
+    <span data-i18n="cal">Takvim</span>
+  </button>
+  <button class="nav-item" onclick="goPage('compare',this)">
+    <div class="nav-icon-wrap"><span class="icon">⚔️</span></div>
+    <span data-i18n="vs">Karşılaştır</span>
+  </button>
+  <button class="nav-item" onclick="goPage('profile',this)">
+    <div class="nav-icon-wrap"><span class="icon">👤</span></div>
+    <span>Profil</span>
+  </button>
+</nav>
+
+<!-- ANIME DETAIL MODAL -->
+<div class="modal-overlay" id="animeModal" onclick="if(event.target===this)closeAnimeModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeAnimeModal()">✕</button>
+    <div id="animeModalContent"><div class="loading" style="min-height:200px"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- CHAR DETAIL MODAL -->
+<div class="modal-overlay" id="charModal" onclick="if(event.target===this)closeCharModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeCharModal()">✕</button>
+    <div id="charModalContent"></div>
+  </div>
+</div>
+
+<!-- LANG MODAL -->
+<div class="lang-modal" id="langModal" onclick="if(event.target===this)closeLang()">
+  <div class="lang-box">
+    <h3>🌐 Dil Seç / Language</h3>
+    <div class="lang-option active" id="lang-tr" onclick="setLang('tr')">
+      <span class="lang-flag">🇹🇷</span>
+      <div><div class="lang-name">Türkçe</div><div class="lang-native">Turkish</div></div>
+    </div>
+    <div class="lang-option" id="lang-en" onclick="setLang('en')">
+      <span class="lang-flag">🇬🇧</span>
+      <div><div class="lang-name">English</div><div class="lang-native">İngilizce</div></div>
+    </div>
+    <div class="lang-option" id="lang-ja" onclick="setLang('ja')">
+      <span class="lang-flag">🇯🇵</span>
+      <div><div class="lang-name">日本語</div><div class="lang-native">Japonca</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================== i18n =====================
+const LANGS = {
+  tr:{home:'Anasayfa',favs:'Favoriler',cal:'Takvim',vs:'Karşılaştır',top:'IMDb Top 12',trending:'Trend Animeler 🔥',popular:'En Popüler',airing:'Yayında',favorites2:'Favoriler',myFavs:'Favorilerim ❤️',schedule:'Yayın Takvimi 📅',compare:'Anime Karşılaştır ⚔️',compareDesc:'İki anime seç, hangisi daha iyi?',selectAnime:'Anime Seç',loading:'Yükleniyor...',addFav:'Favorilere Ekle ❤️',removeFav:'Favorilerden Çıkar 💔',noFavs:'Henüz favori yok',noFavsDesc:'Anime detayında ❤️ butonuna bas!',characters:'Karakterler',charStory:'Karakter Hikayesi',skills:'Yetenekler',info:'Anime Bilgileri',score:'Değerlendirme',reviews:'Yorumlar',monday:'Pazartesi',tuesday:'Salı',wednesday:'Çarşamba',thursday:'Perşembe',friday:'Cuma',saturday:'Cumartesi',sunday:'Pazar',episode:'Bölüm',totalFavs:'Toplam',avgScore:'Ort. Puan',topGenre:'Tür'},
+  en:{home:'Home',favs:'Favorites',cal:'Schedule',vs:'Compare',top:'IMDb Top 12',trending:'Trending 🔥',popular:'Most Popular',airing:'Airing',favorites2:'Favorites',myFavs:'My Favorites ❤️',schedule:'Airing Schedule 📅',compare:'Compare Anime ⚔️',compareDesc:'Pick two anime, which is better?',selectAnime:'Select Anime',loading:'Loading...',addFav:'Add to Favorites ❤️',removeFav:'Remove from Favorites 💔',noFavs:'No favorites yet',noFavsDesc:'Tap ❤️ on any anime detail!',characters:'Characters',charStory:'Character Story',skills:'Skills & Abilities',info:'Anime Info',score:'Score',reviews:'Reviews',monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday',episode:'Episode',totalFavs:'Total',avgScore:'Avg Score',topGenre:'Genre'},
+  ja:{home:'ホーム',favs:'お気に入り',cal:'放送',vs:'比較',top:'IMDbトップ12',trending:'トレンド 🔥',popular:'人気',airing:'放送中',favorites2:'お気に入り',myFavs:'お気に入り ❤️',schedule:'放送スケジュール 📅',compare:'アニメ比較 ⚔️',compareDesc:'2つのアニメを選んでください',selectAnime:'選択',loading:'読み込み中...',addFav:'お気に入り追加 ❤️',removeFav:'削除 💔',noFavs:'お気に入りなし',noFavsDesc:'❤️ボタンを押してください',characters:'キャラクター',charStory:'キャラクターストーリー',skills:'スキル',info:'情報',score:'評価',reviews:'レビュー',monday:'月曜日',tuesday:'火曜日',wednesday:'水曜日',thursday:'木曜日',friday:'金曜日',saturday:'土曜日',sunday:'日曜日',episode:'話',totalFavs:'合計',avgScore:'平均',topGenre:'ジャンル'},
+};
+let currentLang = localStorage.getItem('haslang') || 'tr';
+function t(k){return LANGS[currentLang][k]||LANGS.tr[k]||k;}
+function applyLang(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(LANGS[currentLang][k])el.textContent=LANGS[currentLang][k];});
+  document.getElementById('langLabel').textContent=currentLang.toUpperCase();
+}
+function setLang(l){
+  currentLang=l;localStorage.setItem('haslang',l);
+  document.querySelectorAll('.lang-option').forEach(o=>o.classList.remove('active'));
+  document.getElementById('lang-'+l).classList.add('active');
+  applyLang(); closeLang(); showToast('🌐 '+l.toUpperCase());
+}
+function openLang(){document.getElementById('langModal').classList.add('show');}
+function closeLang(){document.getElementById('langModal').classList.remove('show');}
+
+// ===================== API =====================
+const API = 'https://api.jikan.moe/v4';
+const cache = {};
+async function api(path){
+  if(cache[path])return cache[path];
+  await new Promise(r=>setTimeout(r,350));
+  const res = await fetch(API+path);
+  const data = await res.json();
+  cache[path]=data; return data;
+}
+
+// ===================== FAVORITES =====================
+let favs = JSON.parse(localStorage.getItem('hasfavs')||'[]');
+function isFav(id){return favs.some(f=>f.id===id);}
+function toggleFav(anime){
+  if(isFav(anime.id)){
+    favs=favs.filter(f=>f.id!==anime.id);
+    showToast('💔 '+t('removeFav'));
+  } else {
+    favs.push(anime);
+    showToast('❤️ '+t('addFav'));
+  }
+  localStorage.setItem('hasfavs',JSON.stringify(favs));
+  updateFavBadge(); renderFavs();
+}
+function updateFavBadge(){
+  const b=document.getElementById('favBadge');
+  b.textContent=favs.length;
+  b.style.display=favs.length?'flex':'none';
+}
+
+// ===================== PAGES =====================
+let calLoaded=false;
+function goPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='favs')renderFavs();
+  if(id==='cal'&&!calLoaded){loadCal();calLoaded=true;}
+  window.scrollTo(0,0);
+}
+
+// ===================== TOAST =====================
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ===================== SCORE COLOR =====================
+function sc(s){if(s>=9)return'var(--cyan)';if(s>=8)return'var(--gold)';if(s>=7)return'var(--accent)';return'var(--muted)';}
+
+// ===================== TOP GRID =====================
+async function loadTop(){
+  try{
+    const data=await api('/top/anime?limit=12');
+    const animes=data.data||[];
+    const ranks=['rank-gold','rank-silver','rank-bronze'];
+    document.getElementById('topGrid').innerHTML=`<div class="anime-grid">${animes.map((a,i)=>`
+      <div class="anime-card" onclick="openAnime(${a.mal_id})">
+        <div class="anime-rank ${i<3?ranks[i]:'rank-def'}">#${i+1}</div>
+        <button class="fav-btn ${isFav(a.mal_id)?'active':''}" onclick="event.stopPropagation();quickFav(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})" title="Favori">❤️</button>
+        ${a.images?.jpg?.large_image_url?`<img class="anime-thumb" src="${a.images.jpg.large_image_url}" loading="lazy" alt="${a.title}">`:`<div class="anime-thumb-ph">🎌</div>`}
+        <div class="anime-info"><h3>${a.title}</h3><div class="anime-score" style="color:${sc(a.score)}">⭐ ${a.score||'?'}</div></div>
+      </div>`).join('')}</div>`;
+  }catch(e){document.getElementById('topGrid').innerHTML='<div class="loading">Yüklenemedi 😔</div>';}
+}
+
+function quickFav(id,title,img,score){
+  const a={id,title,image:img,score};
+  toggleFav(a);
+  document.querySelectorAll('.fav-btn').forEach(b=>{
+    const p=b.closest('.anime-card');
+    if(p&&p.querySelector('.anime-rank')){
+      // update all fav btns
+    }
+  });
+  loadTop();
+}
+
+// ===================== TRENDING =====================
+async function loadTrend(btn,filter){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('trendList').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  try{
+    const data=await api(`/top/anime?limit=10&filter=${filter}`);
+    const animes=data.data||[];
+    document.getElementById('trendList').innerHTML=`<div class="trend-list">${animes.map((a,i)=>`
+      <div class="trend-item" onclick="openAnime(${a.mal_id})">
+        <div class="trend-num">${String(i+1).padStart(2,'0')}</div>
+        ${a.images?.jpg?.image_url?`<img class="trend-img" src="${a.images.jpg.image_url}" loading="lazy">`:`<div class="trend-img-ph">🎌</div>`}
+        <div class="trend-info">
+          <h3>${a.title}</h3>
+          <p>${a.title_japanese||''} · ${a.year||''}</p>
+          <div class="trend-badges">
+            ${a.genres?.slice(0,2).map(g=>`<span class="badge badge-r">${g.name}</span>`).join('')||''}
+            <span class="badge badge-c">${a.status||''}</span>
+          </div>
+        </div>
+        <div class="trend-score"><div class="sc" style="color:${sc(a.score)}">⭐${a.score||'?'}</div><div class="lb">IMDb</div></div>
+        <button class="trend-fav" onclick="event.stopPropagation();quickFav(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})">${isFav(a.mal_id)?'❤️':'🤍'}</button>
+      </div>`).join('')}</div>`;
+  }catch(e){document.getElementById('trendList').innerHTML='<div class="loading">Yüklenemedi 😔</div>';}
+}
+
+// ===================== SEARCH =====================
+let searchTimeout;
+const sinput=()=>document.getElementById('searchInput');
+sinput().addEventListener('input',()=>{
+  clearTimeout(searchTimeout);
+  const q=sinput().value.trim();
+  if(!q){document.getElementById('searchDrop').classList.remove('show');return;}
+  searchTimeout=setTimeout(()=>fetchSearch(q,'searchDrop',id=>openAnime(id)),500);
+});
+sinput().addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();if(e.key==='Escape')document.getElementById('searchDrop').classList.remove('show');});
+document.addEventListener('click',e=>{if(!e.target.closest('.search-bar')&&!e.target.closest('.search-dropdown'))document.getElementById('searchDrop').classList.remove('show');});
+
+async function fetchSearch(q,dropId,onPick){
+  const drop=document.getElementById(dropId);
+  drop.innerHTML=`<div class="sdrop-item"><div class="sdrop-info"><h4>🔍 ${t('loading')}</h4></div></div>`;
+  drop.classList.add('show');
+  try{
+    const data=await fetch(`${API}/anime?q=${encodeURIComponent(q)}&limit=6`).then(r=>r.json());
+    const results=data.data||[];
+    if(!results.length){drop.innerHTML=`<div class="sdrop-item"><div class="sdrop-info"><h4>Sonuç yok 😔</h4></div></div>`;return;}
+    drop.innerHTML=results.map(a=>`
+      <div class="sdrop-item" onclick="${onPick.toString().includes('openAnime')?`openAnime(${a.mal_id});document.getElementById('${dropId}').classList.remove('show');sinput().value=''`:`pickSlot(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})`}">
+        ${a.images?.jpg?.small_image_url?`<img class="sdrop-img" src="${a.images.jpg.small_image_url}">`:`<div class="sdrop-img" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem">🎌</div>`}
+        <div class="sdrop-info"><h4>${a.title}</h4><p>${a.title_japanese||''} · ${a.year||''}</p></div>
+        <div class="sdrop-score">⭐${a.score||'?'}</div>
+      </div>`).join('');
+  }catch(e){drop.innerHTML=`<div class="sdrop-item"><div class="sdrop-info"><h4>Hata 😔</h4></div></div>`;}
+}
+function doSearch(){fetchSearch(sinput().value.trim(),'searchDrop',id=>openAnime(id));}
+
+// ===================== RANDOM ANIME =====================
+async function randomAnime(){
+  showToast('🎲 Rastgele anime seçiliyor...');
+  try{
+    const page=Math.floor(Math.random()*10)+1;
+    const data=await api(`/top/anime?limit=25&page=${page}`);
+    const animes=data.data||[];
+    const pick=animes[Math.floor(Math.random()*animes.length)];
+    if(pick)openAnime(pick.mal_id);
+  }catch(e){showToast('😔 Hata oluştu');}
+}
+
+// ===================== ANIME MODAL =====================
+async function openAnime(id){
+  document.getElementById('animeModal').classList.add('show');
+  document.body.style.overflow='hidden';
+  document.getElementById('animeModalContent').innerHTML='<div class="loading" style="min-height:200px"><div class="spinner"></div></div>';
+  try{
+    const [ar,cr]=await Promise.all([api(`/anime/${id}/full`),api(`/anime/${id}/characters`)]);
+    const a=ar.data; const chars=(cr.data||[]).slice(0,10);
+    const isFaved=isFav(a.mal_id);
+
+    // Translate synopsis
+    let synopsis = a.synopsis?a.synopsis.replace('[Written by MAL Rewrite]','').trim().substring(0,400):'Açıklama yok.';
+    if(currentLang!=='en' && synopsis.length>20){
+      synopsis = await translateWithAI(synopsis, currentLang, 'synopsis');
+    }
+
+    document.getElementById('animeModalContent').innerHTML=`
+      ${a.images?.jpg?.large_image_url?`<img class="modal-banner" src="${a.images.jpg.large_image_url}">`:`<div class="modal-banner-ph">🎌</div>`}
+      <div class="modal-hero">
+        ${a.images?.jpg?.large_image_url?`<img class="modal-poster" src="${a.images.jpg.large_image_url}">`:`<div class="modal-poster-ph">🎌</div>`}
+        <div class="modal-meta">
+          <h2>${a.title}</h2>
+          <div class="jp">${a.title_japanese||''}</div>
+          <div class="modal-scores">
+            <div class="score-box gold-box"><div class="val">⭐${a.score||'?'}</div><div class="lbl">IMDb</div></div>
+            <div class="score-box cyan-box"><div class="val">#${a.rank||'?'}</div><div class="lbl">Rank</div></div>
+            <div class="score-box red-box"><div class="val">${a.episodes||'?'}</div><div class="lbl">Ep</div></div>
+          </div>
+          <div class="modal-tags">
+            ${a.genres?.slice(0,3).map(g=>`<span class="badge badge-r">${g.name}</span>`).join('')||''}
+            <span class="badge badge-c">${a.status||''}</span>
+          </div>
+          <p class="modal-desc">${synopsis}</p>
+        </div>
+      </div>
+      <button class="modal-fav-btn ${isFaved?'active':''}" id="modalFavBtn" onclick="toggleFavModal(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})">
+        ${isFaved?'❤️ '+t('removeFav'):'🤍 '+t('addFav')}
+      </button>
+      <div class="modal-body">
+        <div class="modal-section">📋 ${t('info')}</div>
+        <div class="info-grid">
+          <div class="info-item"><div class="key">Tür</div><div class="val">${a.type||'?'}</div></div>
+          <div class="info-item"><div class="key">Bölüm</div><div class="val">${a.episodes||'?'}</div></div>
+          <div class="info-item"><div class="key">Stüdyo</div><div class="val">${a.studios?.[0]?.name||'?'}</div></div>
+          <div class="info-item"><div class="key">Yayın</div><div class="val">${a.year||'?'}</div></div>
+          <div class="info-item"><div class="key">Durum</div><div class="val">${a.status||'?'}</div></div>
+          <div class="info-item"><div class="key">Popülerlik</div><div class="val">#${a.popularity||'?'}</div></div>
+        </div>
+        <div class="modal-section">📊 ${t('score')}</div>
+        <div class="stat-bars">
+          ${[['IMDb',Math.round((a.score||0)*10)],['Popülerlik',Math.max(0,100-Math.round((a.popularity||100)/80))],['Üye',Math.min(100,Math.round((a.members||0)/15000))],['Favori',Math.min(100,Math.round((a.favorites||0)/3000))]].map(([l,v])=>`
+          <div class="stat-bar-row"><div class="stat-bar-label">${l}</div><div class="stat-bar-track"><div class="stat-bar-fill" style="width:${v}%"></div></div><div class="stat-bar-val">${v}</div></div>`).join('')}
+        </div>
+        ${chars.length?`
+        <div class="modal-section">👥 ${t('characters')}</div>
+        <div class="char-scroll">
+          ${chars.map(c=>`
+          <div class="char-card" onclick="openChar(${c.character.mal_id},'${(c.character.name||'').replace(/'/g,"\\'")}','${c.character.images?.jpg?.image_url||''}','${c.role||''}')">
+            ${c.character.images?.jpg?.image_url?`<img class="char-img" src="${c.character.images.jpg.image_url}" loading="lazy">`:`<div class="char-img-ph">👤</div>`}
+            <div class="char-info">
+              <h4>${c.character.name}</h4>
+              <p>${c.voice_actors?.[0]?.person?.name||''}</p>
+              <span class="char-role ${c.role==='Main'?'role-main':c.role==='Supporting'?'role-sup':'role-vil'}">${c.role==='Main'?'Ana':c.role==='Supporting'?'Destek':'Diğer'}</span>
+            </div>
+          </div>`).join('')}
+        </div>`:''}
+      </div>`;
+  }catch(e){document.getElementById('animeModalContent').innerHTML='<div class="loading" style="min-height:200px">Yüklenemedi 😔</div>';}
+}
+
+function toggleFavModal(id,title,img,score){
+  const a={id,title,image:img,score};
+  toggleFav(a);
+  const btn=document.getElementById('modalFavBtn');
+  if(btn){btn.className='modal-fav-btn'+(isFav(id)?' active':'');btn.textContent=isFav(id)?'❤️ '+t('removeFav'):'🤍 '+t('addFav');}
+}
+function closeAnimeModal(){document.getElementById('animeModal').classList.remove('show');document.body.style.overflow='';}
+
+// ===================== CHARACTER MODAL =====================
+// Extra character data (skills & stories)
+const CHAR_EXTRA = {
+  default:{
+    story:'Bu karakter hakkında detaylı hikaye bilgisi bulunmaktadır. Yıllar içinde geçirdiği deneyimler onu şekillendirmiş ve güçlü bir savaşçıya dönüştürmüştür.',
+    skills:[
+      {icon:'⚡',name:'Temel Yetenek',desc:'Karakterin ana gücü',power:80},
+      {icon:'🛡️',name:'Savunma',desc:'Güçlü savunma kapasitesi',power:70},
+      {icon:'💨',name:'Hız',desc:'Olağanüstü çeviklik',power:75},
+    ]
+  }
+};
+
+async function translateWithAI(text, targetLang, type='general'){
+  const langNames={tr:'Türkçe',en:'English',ja:'日本語'};
+  if(targetLang==='en') return text;
+  try{
+    const prompt = type==='synopsis'
+      ? `Bu anime açıklamasını ${langNames[targetLang]||'Türkçe'} diline çevir. Sadece çeviriyi yaz, başka hiçbir şey ekleme:\n\n${text}`
+      : `Bu anime karakter hikayesini ${langNames[targetLang]||'Türkçe'} diline çevir. Sadece çeviriyi yaz, başka hiçbir şey ekleme:\n\n${text}`;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await res.json();
+    return data.content?.[0]?.text||text;
+  }catch(e){return text;}
+}
+
+async function generateSkillsWithAI(charName, charAbout, targetLang){
+  const langNames={tr:'Türkçe',en:'English',ja:'日本語'};
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        messages:[{role:'user',content:`Sen bir anime uzmanısın. "${charName}" adlı anime karakteri için 3 adet özel yetenek/skill oluştur.
+
+Karakter hakkında bilgi: ${charAbout.substring(0,200)}
+
+Yanıtı SADECE şu JSON formatında ver, başka hiçbir şey yazma:
+[
+  {"icon":"🔥","name":"Yetenek Adı (Japonca varsa ekle)","desc":"Bu yeteneği nasıl kullandığını kısaca anlat, 1-2 cümle","power":85},
+  {"icon":"⚡","name":"Yetenek Adı","desc":"Açıklama","power":70},
+  {"icon":"🌊","name":"Yetenek Adı","desc":"Açıklama","power":75}
+]
+
+Dil: ${langNames[targetLang]||'Türkçe'}
+Gerçekçi anime skill isimleri kullan (örn: Getsuga Tensho, Rasengan, Kamehameha gibi).`}]
+      })
+    });
+    const data=await res.json();
+    const text=data.content?.[0]?.text||'';
+    const clean=text.replace(/```json|```/g,'').trim();
+    return JSON.parse(clean);
+  }catch(e){
+    return [
+      {icon:'⚡',name:'Temel Saldırı',desc:'Karakterin temel güç saldırısı.',power:75},
+      {icon:'🛡️',name:'Savunma Kalkanı',desc:'Güçlü bir savunma bariyeri oluşturur.',power:65},
+      {icon:'💨',name:'Hız Patlaması',desc:'Olağanüstü hız ile hedefe saldırır.',power:80},
+    ];
+  }
+}
+
+async function openChar(id,name,img,role){
+  document.getElementById('charModal').classList.add('show');
+  document.body.style.overflow='hidden';
+  const extra=CHAR_EXTRA[id]||CHAR_EXTRA.default;
+
+  // Show skeleton with loading story
+  document.getElementById('charModalContent').innerHTML=`
+    <div style="padding:16px;"><div class="char-detail">
+      <div class="char-detail-header">
+        ${img?`<img class="char-detail-img" src="${img}">`:`<div class="char-detail-img-ph">👤</div>`}
+        <div class="char-detail-meta"><h3>${name}</h3>
+          <p style="color:var(--muted);font-size:0.78rem">${role==='Main'?'Ana Karakter':role==='Supporting'?'Destek Karakter':'Karakter'}</p>
+          <div style="display:inline-block;margin-top:6px;background:rgba(0,245,212,0.1);border:1px solid rgba(0,245,212,0.2);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:var(--cyan);">🌐 AI Çeviri yapılıyor...</div>
+        </div>
+      </div>
+      <div class="modal-section">📖 ${t('charStory')}</div>
+      <div class="loading" style="padding:16px 0"><div class="spinner"></div></div>
+      <div class="modal-section">⚡ ${t('skills')}</div>
+      <div class="skill-list">${extra.skills.map(s=>`<div class="skill-item"><div class="skill-icon">${s.icon}</div><div class="skill-text"><div class="sn">${s.name}</div><div class="sd">${s.desc}</div></div><div class="skill-power">${s.power}/100</div></div>`).join('')}</div>
+    </div></div>`;
+
+  try{
+    const data=await api(`/characters/${id}/full`);
+    const c=data.data;
+    let about=c?.about?.replace(/\[.*?\]/g,'').trim().substring(0,500)||extra.story;
+    // AI translate story + generate skills in parallel
+    const [translatedAbout, aiSkills] = await Promise.all([
+      about.length>20 ? translateWithAI(about,currentLang,'char') : Promise.resolve(about),
+      generateSkillsWithAI(name, about, currentLang)
+    ]);
+    about = translatedAbout;
+    const skills = aiSkills || extra.skills;
+    const nicknames=c?.nicknames?.length?c.nicknames.slice(0,3).join(', '):'';
+    document.getElementById('charModalContent').innerHTML=`
+      <div style="padding:16px;"><div class="char-detail">
+        <div class="char-detail-header">
+          ${img?`<img class="char-detail-img" src="${img}">`:`<div class="char-detail-img-ph">👤</div>`}
+          <div class="char-detail-meta">
+            <h3>${name}</h3>
+            <p style="color:var(--muted);font-size:0.78rem">${role==='Main'?'Ana Karakter':role==='Supporting'?'Destek Karakter':'Karakter'}</p>
+            ${nicknames?`<p style="color:var(--cyan);font-size:0.72rem;margin-top:3px">💬 ${nicknames}</p>`:''}
+            <div style="display:inline-block;margin-top:6px;background:rgba(0,245,212,0.1);border:1px solid rgba(0,245,212,0.2);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:var(--cyan);">✅ AI Çeviri & Skill</div>
+          </div>
+        </div>
+        <div class="modal-section">📖 ${t('charStory')}</div>
+        <p class="char-story">${about}</p>
+        <div class="modal-section">⚡ ${t('skills')}</div>
+        <div class="skill-list">${skills.map(s=>`
+          <div class="skill-item">
+            <div class="skill-icon">${s.icon}</div>
+            <div class="skill-text"><div class="sn">${s.name}</div><div class="sd">${s.desc}</div></div>
+            <div class="skill-power" style="color:${s.power>=90?'var(--cyan)':s.power>=75?'var(--gold)':'var(--accent)'};">${s.power}/100</div>
+          </div>`).join('')}
+        </div>
+      </div></div>`;
+  }catch(e){
+    document.getElementById('charModalContent').innerHTML=`
+      <div style="padding:16px;">
+        <div class="char-detail">
+          <div class="char-detail-header">
+            ${img?`<img class="char-detail-img" src="${img}">`:`<div class="char-detail-img-ph">👤</div>`}
+            <div class="char-detail-meta"><h3>${name}</h3><p style="color:var(--muted);font-size:0.78rem">${role}</p></div>
+          </div>
+          <div class="modal-section">📖 ${t('charStory')}</div>
+          <p class="char-story">${extra.story}</p>
+          <div class="modal-section">⚡ ${t('skills')}</div>
+          <div class="skill-list">${extra.skills.map(s=>`<div class="skill-item"><div class="skill-icon">${s.icon}</div><div class="skill-text"><div class="sn">${s.name}</div><div class="sd">${s.desc}</div></div><div class="skill-power">${s.power}/100</div></div>`).join('')}</div>
+        </div>
+      </div>`;
+  }
+}
+function closeCharModal(){document.getElementById('charModal').classList.remove('show');document.body.style.overflow='';}
+
+// ===================== CALENDAR =====================
+async function loadCal(){
+  const days=['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  try{
+    const data=await api('/schedules?limit=7');
+    // Fallback: just show schedule by day
+    const calDiv=document.getElementById('calContent');
+    calDiv.innerHTML='';
+    for(const day of days){
+      try{
+        const d=await api(`/schedules?filter=${day}&limit=5`);
+        const animes=d.data||[];
+        if(!animes.length)continue;
+        calDiv.innerHTML+=`
+          <div class="cal-day">
+            <div class="cal-day-header">
+              <div class="cal-day-name">📅 ${t(day)}</div>
+              <div class="cal-day-badge">${animes.length} ${t('episode')}</div>
+            </div>
+            ${animes.map(a=>`
+            <div class="cal-anime" onclick="openAnime(${a.mal_id})">
+              ${a.images?.jpg?.small_image_url?`<img src="${a.images.jpg.small_image_url}" style="width:36px;height:50px;object-fit:cover;border-radius:6px;">`:`<div style="width:36px;height:50px;background:var(--surface);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.2rem">🎌</div>`}
+              <div class="cal-anime-info">
+                <h4>${a.title}</h4>
+                <p>${a.studios?.[0]?.name||''} · ⭐${a.score||'?'}</p>
+              </div>
+              <div class="cal-ep">${a.episodes?a.episodes+' Ep':'?'}</div>
+            </div>`).join('')}
+          </div>`;
+        await new Promise(r=>setTimeout(r,300));
+      }catch(e){}
+    }
+    if(!calDiv.innerHTML)calDiv.innerHTML='<div class="loading">Takvim yüklenemedi 😔</div>';
+  }catch(e){document.getElementById('calContent').innerHTML='<div class="loading">Yüklenemedi 😔</div>';}
+}
+
+// ===================== COMPARE =====================
+let compareSlots={1:null,2:null};
+let activeSlot=null;
+
+function openSlotSearch(n){
+  activeSlot=n;
+  document.getElementById('slotSearchWrap').style.display='block';
+  document.getElementById('slotSearchInput').focus();
+  const inp=document.getElementById('slotSearchInput');
+  inp.oninput=()=>{
+    clearTimeout(searchTimeout);
+    const q=inp.value.trim();
+    if(!q){document.getElementById('slotDrop').innerHTML='';return;}
+    searchTimeout=setTimeout(()=>fetchSlotSearch(q),500);
+  };
+}
+
+async function fetchSlotSearch(q){
+  const drop=document.getElementById('slotDrop');
+  try{
+    const data=await fetch(`${API}/anime?q=${encodeURIComponent(q)}&limit=5`).then(r=>r.json());
+    drop.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:6px;">${(data.data||[]).map(a=>`
+      <div class="sdrop-item" onclick="pickSlot(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})">
+        ${a.images?.jpg?.small_image_url?`<img class="sdrop-img" src="${a.images.jpg.small_image_url}">`:`<div class="sdrop-img" style="display:flex;align-items:center;justify-content:center">🎌</div>`}
+        <div class="sdrop-info"><h4>${a.title}</h4><p>${a.year||''}</p></div>
+        <div class="sdrop-score">⭐${a.score||'?'}</div>
+      </div>`).join('')}</div>`;
+  }catch(e){}
+}
+
+async function pickSlot(id,title,img,score){
+  compareSlots[activeSlot]={id,title,img,score};
+  document.getElementById('slotSearchWrap').style.display='none';
+  document.getElementById('slotDrop').innerHTML='';
+  renderSlots();
+  if(compareSlots[1]&&compareSlots[2])await renderCompare();
+}
+
+function cancelSlot(){
+  document.getElementById('slotSearchWrap').style.display='none';
+  document.getElementById('slotDrop').innerHTML='';
+}
+
+function renderSlots(){
+  [1,2].forEach(n=>{
+    const slot=document.getElementById('slot'+n);
+    const s=compareSlots[n];
+    if(s){
+      slot.className='compare-slot filled';
+      slot.innerHTML=`${s.img?`<img src="${s.img}" style="width:60px;height:85px;object-fit:cover;border-radius:8px;">`:'🎌'}
+        <h4 style="font-size:0.75rem;margin-top:6px">${s.title}</h4>
+        <p style="color:var(--gold);font-size:0.78rem;font-weight:700">⭐${s.score}</p>
+        <button class="remove-btn" onclick="event.stopPropagation();removeSlot(${n})">✕ Kaldır</button>`;
+      slot.onclick=null;
+    } else {
+      slot.className='compare-slot';
+      slot.innerHTML=`<div style="font-size:2rem">➕</div><p style="font-size:0.78rem;color:var(--muted)">${t('selectAnime')}</p>`;
+      slot.onclick=()=>openSlotSearch(n);
+    }
+  });
+}
+
+function removeSlot(n){compareSlots[n]=null;renderSlots();document.getElementById('compareResult').innerHTML='';}
+
+async function renderCompare(){
+  const [a1,a2]=await Promise.all([
+    api(`/anime/${compareSlots[1].id}`),
+    api(`/anime/${compareSlots[2].id}`)
+  ]);
+  const d1=a1.data,d2=a2.data;
+  const rows=[
+    ['IMDb Puanı',d1.score||0,d2.score||0],
+    ['Popülerlik Sırası',d2.popularity||999,d1.popularity||999], // lower=better reversed
+    ['Favori Sayısı',d1.favorites||0,d2.favorites||0],
+    ['Üye Sayısı',d1.members||0,d2.members||0],
+    ['Bölüm Sayısı',d1.episodes||0,d2.episodes||0],
+  ];
+  document.getElementById('compareResult').innerHTML=`
+    <div class="compare-result">
+      <div style="text-align:center;margin-bottom:14px;font-family:'Orbitron',monospace;font-size:0.8rem;color:var(--muted)">⚔️ KARŞILAŞTIRMA</div>
+      ${rows.map(([label,v1,v2])=>{
+        const w1=v1>v2,w2=v2>v1;
+        return `<div style="margin-bottom:12px;">
+          <div style="font-size:0.7rem;color:var(--muted);text-align:center;margin-bottom:4px">${label}</div>
+          <div class="compare-row">
+            <div class="compare-val ${w1?'compare-win':'compare-lose'}">${v1}</div>
+            <div style="font-size:0.8rem;color:var(--border)">vs</div>
+            <div class="compare-val ${w2?'compare-win':'compare-lose'}">${v2}</div>
+          </div>
+        </div>`;
+      }).join('')}
+      <div style="text-align:center;margin-top:14px;padding:12px;background:rgba(0,230,118,0.1);border-radius:12px;border:1px solid rgba(0,230,118,0.2);">
+        <div style="font-size:0.7rem;color:var(--muted);margin-bottom:4px">🏆 KAZANAN</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--green)">${(d1.score||0)>=(d2.score||0)?d1.title:d2.title}</div>
+      </div>
+    </div>`;
+}
+
+// ===================== FAVORITES PAGE =====================
+function renderFavs(){
+  const grid=document.getElementById('favGrid');
+  const stats=document.getElementById('favStats');
+  if(!favs.length){
+    stats.innerHTML='';
+    grid.innerHTML=`<div class="fav-empty"><div class="emoji">💔</div><h3>${t('noFavs')}</h3><p>${t('noFavsDesc')}</p></div>`;
+    return;
+  }
+  const avg=(favs.reduce((s,f)=>s+(f.score||0),0)/favs.length).toFixed(1);
+  stats.innerHTML=`
+    <div class="fav-stat"><div class="val">${favs.length}</div><div class="lbl">${t('totalFavs')}</div></div>
+    <div class="fav-stat"><div class="val">${avg}</div><div class="lbl">${t('avgScore')}</div></div>
+    <div class="fav-stat"><div class="val">❤️</div><div class="lbl">${t('favs')}</div></div>`;
+  grid.innerHTML=`<div class="anime-grid">${favs.map(a=>`
+    <div class="anime-card" onclick="openAnime(${a.id})">
+      <button class="fav-btn active" onclick="event.stopPropagation();removeFavDirect(${a.id})">❤️</button>
+      ${a.image?`<img class="anime-thumb" src="${a.image}" loading="lazy">`:`<div class="anime-thumb-ph">🎌</div>`}
+      <div class="anime-info"><h3>${a.title}</h3><div class="anime-score">⭐${a.score||'?'}</div></div>
+    </div>`).join('')}</div>`;
+}
+
+function removeFavDirect(id){
+  favs=favs.filter(f=>f.id!==id);
+  localStorage.setItem('hasfavs',JSON.stringify(favs));
+  updateFavBadge(); renderFavs();
+  showToast('💔 Favorilerden çıkarıldı');
+}
+
+// ===================== AUTH / PROFILE =====================
+let currentUser = JSON.parse(localStorage.getItem('hasuser')||'null');
+const RANKS=[
+  {min:0,name:'Yeni Otaku',icon:'🌱'},
+  {min:5,name:'Anime Sever',icon:'⭐'},
+  {min:10,name:'Otaku',icon:'🔥'},
+  {min:20,name:'Weeb',icon:'💎'},
+  {min:30,name:'Anime Tanrısı',icon:'👑'},
+];
+function getRank(n){
+  let r=RANKS[0];
+  for(const x of RANKS) if(n>=x.min) r=x;
+  return r;
+}
+
+function renderProfile(){
+  const el=document.getElementById('profileContent');
+  if(!currentUser){
+    // Show login/register
+    el.innerHTML=`
+      <div class="auth-wrap">
+        <div class="section-title" style="justify-content:center;margin-bottom:20px;">
+          <div class="dot dot-cyan"></div>
+          <span style="font-family:'Orbitron',monospace">HasAnime Hesabı</span>
+        </div>
+        <div style="text-align:center;font-size:3rem;margin-bottom:16px;">🎌</div>
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="loginTab" onclick="switchAuthTab('login')">Giriş Yap</button>
+          <button class="auth-tab" id="registerTab" onclick="switchAuthTab('register')">Kayıt Ol</button>
+        </div>
+        <div id="authError" class="auth-error"></div>
+        <div id="authSuccess" class="auth-success"></div>
+        <div id="loginForm" class="auth-form">
+          <input class="auth-input" id="loginEmail" type="email" placeholder="E-posta">
+          <input class="auth-input" id="loginPass" type="password" placeholder="Şifre">
+          <button class="auth-btn" onclick="doLogin()">🚀 Giriş Yap</button>
+        </div>
+        <div id="registerForm" class="auth-form" style="display:none">
+          <input class="auth-input" id="regName" type="text" placeholder="Kullanıcı Adı">
+          <input class="auth-input" id="regEmail" type="email" placeholder="E-posta">
+          <input class="auth-input" id="regPass" type="password" placeholder="Şifre (min 6 karakter)">
+          <button class="auth-btn" onclick="doRegister()">✨ Kayıt Ol</button>
+        </div>
+        <div class="auth-divider" style="margin-top:16px">veya</div>
+        <button class="auth-btn" style="background:var(--card);border:2px solid var(--border);color:var(--text);margin-top:12px;" onclick="guestMode()">
+          👻 Misafir Olarak Devam Et
+        </button>
+      </div>`;
+  } else {
+    const rank=getRank(favs.length);
+    const joinDate=new Date(currentUser.joined).toLocaleDateString('tr-TR');
+    el.innerHTML=`
+      <div class="profile-card">
+        <div class="profile-avatar">${currentUser.avatar||'🎌'}</div>
+        <div class="profile-name">${currentUser.name}</div>
+        <div class="profile-email">${currentUser.email}</div>
+        <div style="margin-bottom:12px;">
+          <span class="anime-rank-badge">${rank.icon} ${rank.name}</span>
+        </div>
+        <div class="profile-stats">
+          <div class="profile-stat"><div class="val">${favs.length}</div><div class="lbl">Favori</div></div>
+          <div class="profile-stat"><div class="val">${currentUser.watched||0}</div><div class="lbl">İzlendi</div></div>
+          <div class="profile-stat"><div class="val">${rank.icon}</div><div class="lbl">Rütbe</div></div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--muted)">📅 Katılım: ${joinDate}</div>
+      </div>
+      <div class="profile-menu">
+        <div class="profile-menu-item" onclick="goPage('favs',document.querySelectorAll('.nav-item')[1])">
+          <span class="mi-icon">❤️</span>
+          <span class="mi-text">Favori Listesi (${favs.length})</span>
+          <span class="mi-arrow">›</span>
+        </div>
+        <div class="profile-menu-item" onclick="openLang()">
+          <span class="mi-icon">🌐</span>
+          <span class="mi-text">Dil Ayarı</span>
+          <span class="mi-arrow">›</span>
+        </div>
+        <div class="profile-menu-item" onclick="changeAvatar()">
+          <span class="mi-icon">🎨</span>
+          <span class="mi-text">Avatar Değiştir</span>
+          <span class="mi-arrow">›</span>
+        </div>
+        <div class="profile-menu-item" onclick="shareProfile()">
+          <span class="mi-icon">📤</span>
+          <span class="mi-text">Profili Paylaş</span>
+          <span class="mi-arrow">›</span>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">🚪 Çıkış Yap</button>`;
+  }
+}
+
+function switchAuthTab(tab){
+  document.getElementById('loginTab').classList.toggle('active',tab==='login');
+  document.getElementById('registerTab').classList.toggle('active',tab==='register');
+  document.getElementById('loginForm').style.display=tab==='login'?'flex':'none';
+  document.getElementById('registerForm').style.display=tab==='register'?'flex':'none';
+  document.getElementById('authError').style.display='none';
+}
+
+function showAuthError(msg){
+  const el=document.getElementById('authError');
+  el.textContent=msg; el.style.display='block';
+  setTimeout(()=>el.style.display='none',3000);
+}
+
+function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  if(!email||!pass){showAuthError('Tüm alanları doldurun!');return;}
+  const users=JSON.parse(localStorage.getItem('hasusers')||'[]');
+  const user=users.find(u=>u.email===email&&u.pass===pass);
+  if(!user){showAuthError('E-posta veya şifre hatalı!');return;}
+  currentUser=user;
+  localStorage.setItem('hasuser',JSON.stringify(user));
+  showToast('🎉 Hoş geldin '+user.name+'!');
+  renderProfile();
+}
+
+function doRegister(){
+  const name=document.getElementById('regName').value.trim();
+  const email=document.getElementById('regEmail').value.trim();
+  const pass=document.getElementById('regPass').value;
+  if(!name||!email||!pass){showAuthError('Tüm alanları doldurun!');return;}
+  if(pass.length<6){showAuthError('Şifre en az 6 karakter olmalı!');return;}
+  const users=JSON.parse(localStorage.getItem('hasusers')||'[]');
+  if(users.find(u=>u.email===email)){showAuthError('Bu e-posta zaten kayıtlı!');return;}
+  const avatars=['🎌','🔥','⚡','🌊','🌸','💎','👑','🦋','🐉','⚔️'];
+  const newUser={name,email,pass,avatar:avatars[Math.floor(Math.random()*avatars.length)],joined:Date.now(),watched:0};
+  users.push(newUser);
+  localStorage.setItem('hasusers',JSON.stringify(users));
+  currentUser=newUser;
+  localStorage.setItem('hasuser',JSON.stringify(newUser));
+  showToast('🎉 Hesap oluşturuldu! Hoş geldin '+name+'!');
+  renderProfile();
+}
+
+function guestMode(){
+  currentUser={name:'Misafir',email:'misafir@hasanime.com',avatar:'👻',joined:Date.now(),watched:0,guest:true};
+  localStorage.setItem('hasuser',JSON.stringify(currentUser));
+  showToast('👻 Misafir olarak giriş yapıldı');
+  renderProfile();
+}
+
+function doLogout(){
+  currentUser=null;
+  localStorage.removeItem('hasuser');
+  showToast('🚪 Çıkış yapıldı');
+  renderProfile();
+}
+
+const AVATARS=['🎌','🔥','⚡','🌊','🌸','💎','👑','🦋','🐉','⚔️','🎭','🌙','☀️','🎯','🏆'];
+function changeAvatar(){
+  const pick=AVATARS[Math.floor(Math.random()*AVATARS.length)];
+  currentUser.avatar=pick;
+  localStorage.setItem('hasuser',JSON.stringify(currentUser));
+  const users=JSON.parse(localStorage.getItem('hasusers')||'[]');
+  const idx=users.findIndex(u=>u.email===currentUser.email);
+  if(idx>=0){users[idx].avatar=pick;localStorage.setItem('hasusers',JSON.stringify(users));}
+  showToast('🎨 Avatar değiştirildi: '+pick);
+  renderProfile();
+}
+
+function shareProfile(){
+  const rank=getRank(favs.length);
+  const text=`HasAnime'de ${rank.icon} ${rank.name} rütbesindeyim! ${favs.length} favori animem var. Sende dene: hasan4i.github.io/Hasanime-`;
+  if(navigator.share){navigator.share({title:'HasAnime Profilim',text});}
+  else{navigator.clipboard?.writeText(text);showToast('📋 Profil linki kopyalandı!');}
+}
+
+// Update goPage to render profile
+const _origGoPage=goPage;
+goPage=function(id,btn){
+  _origGoPage(id,btn);
+  if(id==='profile') renderProfile();
+};
+
+// ===================== INIT =====================
+applyLang();
+updateFavBadge();
+loadTop();
+loadTrend(document.querySelector('.tab'),'bypopularity');
+document.getElementById('lang-'+currentLang)?.classList.add('active');
+</script>
+</body>
+</html>
