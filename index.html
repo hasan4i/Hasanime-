@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="tr" data-lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#070711">
+<title>HasAnime v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBS68Iv4L6fBYr_NL6sowF9ORdx1CfszóA",
+    authDomain: "hasanime-a24f9.firebaseapp.com",
+    projectId: "hasanime-a24f9",
+    storageBucket: "hasanime-a24f9.firebasestorage.app",
+    messagingSenderId: "768114902070",
+    appId: "1:768114902070:web:ce51e351b6e548c35ec497",
+    measurementId: "G-LSRFVW3342"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window.fbAuth = auth;
+  window.fbDb = db;
+  window.fbCreateUser = createUserWithEmailAndPassword;
+  window.fbSignIn = signInWithEmailAndPassword;
+  window.fbSignOut = signOut;
+  window.fbOnAuth = onAuthStateChanged;
+  window.fbUpdateProfile = updateProfile;
+  window.fbDoc = doc;
+  window.fbSetDoc = setDoc;
+  window.fbGetDoc = getDoc;
+  window.fbUpdateDoc = updateDoc;
+
+  // Auth state listener
+  onAuthStateChanged(auth, async (user) => {
+    if(user){
+      // Load user data from Firestore
+      try{
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+        if(docSnap.exists()){
+          const data = docSnap.data();
+          window.currentUser = {...data, uid: user.uid, email: user.email};
+          // Load favs and watchlist from Firestore
+          if(data.favs) { window.favs = data.favs; localStorage.setItem('hasfavs', JSON.stringify(data.favs)); }
+          if(data.watchlist) { window.watchlist = data.watchlist; localStorage.setItem('haswatchlist', JSON.stringify(data.watchlist)); }
+        } else {
+          window.currentUser = {uid: user.uid, name: user.displayName||'Kullanıcı', email: user.email, avatar:'🎌', joined: Date.now(), watched:0};
+          await setDoc(docRef, window.currentUser);
+        }
+      }catch(e){ console.log(e); }
+      if(window.updateFavBadge) window.updateFavBadge();
+      if(window.renderProfile) window.renderProfile();
+    } else {
+      window.currentUser = null;
+      if(window.renderProfile) window.renderProfile();
+    }
+  });
+</script>
+<style>
+:root {
+  --bg:#070711; --surface:#0f0f1e; --card:#13132a;
+  --border:rgba(255,255,255,0.07); --accent:#e63946;
+  --gold:#ffd60a; --cyan:#00f5d4; --purple:#7b2fff;
+  --green:#00e676; --text:#eaeaea; --muted:rgba(234,234,234,0.5);
+  --nav-h:60px; --bottom-h:64px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;overflow-x:hidden;padding-bottom:var(--bottom-h);}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(123,47,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(123,47,255,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* TOP HEADER */
+header{position:sticky;top:0;z-index:100;background:rgba(7,7,17,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:var(--nav-h);}
+.logo{font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo span{-webkit-text-fill-color:var(--cyan);}
+.header-right{display:flex;align-items:center;gap:10px;}
+.lang-btn{background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text);font-size:0.8rem;font-weight:700;cursor:pointer;transition:all 0.2s;}
+.lang-btn:hover{background:rgba(255,255,255,0.15);}
+.random-btn{background:var(--purple);border:none;border-radius:8px;width:36px;height:36px;color:white;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
+.random-btn:hover{background:#9b3fff;transform:scale(1.05);}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(7,7,17,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;height:var(--bottom-h);safe-area-inset-bottom:env(safe-area-inset-bottom);}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:all 0.2s;padding:6px 2px;border:none;background:transparent;color:var(--muted);font-size:0.55rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;font-family:'Noto Sans JP',sans-serif;}
+.nav-item.active{color:var(--accent);}
+.nav-item svg{stroke:currentColor;transition:all 0.2s;}
+.nav-item.active svg{filter:drop-shadow(0 0 4px var(--accent));}
+.nav-icon-wrap{position:relative;display:flex;align-items:center;justify-content:center;}
+
+/* NEWS */
+.news-card{background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--border);margin-bottom:12px;cursor:pointer;transition:all 0.2s;}
+.news-card:active{transform:scale(0.98);}
+.news-card-img{width:100%;height:160px;object-fit:cover;background:var(--surface);}
+.news-card-body{padding:14px;}
+.news-card-tag{font-size:0.65rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;}
+.news-card-title{font-size:0.95rem;font-weight:700;line-height:1.4;margin-bottom:6px;}
+.news-card-date{font-size:0.72rem;color:var(--muted);}
+.news-card-desc{font-size:0.82rem;color:var(--muted);line-height:1.6;margin-top:8px;}
+
+/* QUIZ */
+.quiz-wrap{max-width:500px;margin:0 auto;}
+.quiz-score-bar{display:flex;justify-content:space-between;align-items:center;background:var(--card);border-radius:12px;padding:12px 16px;margin-bottom:20px;border:1px solid var(--border);}
+.quiz-score-val{font-family:'Orbitron',monospace;font-size:1.2rem;font-weight:900;color:var(--gold);}
+.quiz-score-label{font-size:0.72rem;color:var(--muted);}
+.quiz-question-card{background:var(--card);border-radius:16px;padding:20px;border:1px solid var(--border);margin-bottom:16px;}
+.quiz-q-num{font-size:0.7rem;color:var(--muted);margin-bottom:8px;}
+.quiz-q-text{font-size:1rem;font-weight:700;line-height:1.5;margin-bottom:6px;}
+.quiz-q-anime{font-size:0.78rem;color:var(--cyan);margin-bottom:16px;}
+.quiz-img{width:100%;height:180px;object-fit:cover;border-radius:12px;margin-bottom:16px;object-position:top;}
+.quiz-options{display:flex;flex-direction:column;gap:10px;}
+.quiz-option{background:rgba(255,255,255,0.04);border:2px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;font-size:0.9rem;font-weight:600;transition:all 0.2s;text-align:left;color:var(--text);font-family:'Noto Sans JP',sans-serif;width:100%;}
+.quiz-option:hover{border-color:var(--accent);background:rgba(230,57,70,0.08);}
+.quiz-option.correct{border-color:var(--green);background:rgba(0,230,118,0.15);color:var(--green);}
+.quiz-option.wrong{border-color:var(--accent);background:rgba(230,57,70,0.15);color:var(--accent);}
+.quiz-option:disabled{cursor:default;}
+.quiz-result{text-align:center;padding:30px 20px;}
+.quiz-result-emoji{font-size:4rem;margin-bottom:12px;}
+.quiz-result h2{font-family:'Orbitron',monospace;font-size:1.3rem;margin-bottom:8px;}
+.quiz-result p{color:var(--muted);font-size:0.88rem;margin-bottom:20px;}
+.quiz-restart{background:var(--accent);border:none;border-radius:12px;padding:14px 32px;color:white;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+
+/* BATTLE */
+.battle-wrap{max-width:500px;margin:0 auto;}
+.battle-arena{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:16px;}
+.battle-slot{background:var(--card);border:2px dashed var(--border);border-radius:16px;padding:14px;text-align:center;cursor:pointer;transition:all 0.2s;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
+.battle-slot.filled{border-style:solid;border-color:rgba(230,57,70,0.4);}
+.battle-slot img{width:80px;height:110px;object-fit:cover;object-position:top;border-radius:10px;}
+.battle-slot h4{font-size:0.78rem;font-weight:700;margin-top:4px;}
+.battle-slot p{font-size:0.65rem;color:var(--muted);}
+.battle-vs{font-family:'Orbitron',monospace;font-size:1.4rem;font-weight:900;color:var(--accent);text-align:center;}
+.battle-btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--purple));border:none;border-radius:12px;padding:16px;color:white;font-size:1rem;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-bottom:16px;transition:all 0.2s;}
+.battle-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(230,57,70,0.3);}
+.battle-btn:disabled{opacity:0.5;cursor:default;transform:none;}
+.battle-result{background:var(--card);border-radius:16px;padding:20px;border:1px solid var(--border);text-align:center;}
+.battle-winner-img{width:100px;height:140px;object-fit:cover;object-position:top;border-radius:12px;border:3px solid var(--gold);margin:0 auto 12px;}
+.battle-winner-label{font-size:0.7rem;color:var(--gold);font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;}
+.battle-winner-name{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;margin-bottom:8px;}
+.battle-stats{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;margin-top:14px;}
+.battle-stat-val{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:900;text-align:center;}
+.battle-stat-label{font-size:0.65rem;color:var(--muted);text-align:center;margin-top:2px;}
+.battle-win-val{color:var(--green);}
+.battle-lose-val{color:var(--muted);opacity:0.5;}
+.battle-remove{background:rgba(230,57,70,0.15);border:1px solid rgba(230,57,70,0.3);border-radius:6px;padding:3px 10px;font-size:0.65rem;color:var(--accent);cursor:pointer;margin-top:6px;}
+
+/* WATCHLIST */
+.watchlist-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.watchlist-tabs::-webkit-scrollbar{display:none;}
+.wl-empty{text-align:center;padding:40px 20px;color:var(--muted);}
+.wl-empty .emoji{font-size:3rem;margin-bottom:12px;}
+.wl-item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 12px;margin-bottom:10px;}
+.wl-item img{width:42px;height:58px;object-fit:cover;border-radius:8px;background:var(--surface);flex-shrink:0;}
+.wl-item-info{flex:1;min-width:0;}
+.wl-item-info h4{font-size:0.85rem;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wl-item-info p{font-size:0.72rem;color:var(--muted);}
+.wl-status{font-size:0.65rem;font-weight:700;padding:3px 8px;border-radius:100px;flex-shrink:0;}
+.wl-watching{background:rgba(0,245,212,0.1);color:var(--cyan);border:1px solid rgba(0,245,212,0.2);}
+.wl-completed{background:rgba(0,230,118,0.1);color:var(--green);border:1px solid rgba(0,230,118,0.2);}
+.wl-planned{background:rgba(255,214,10,0.1);color:var(--gold);border:1px solid rgba(255,214,10,0.2);}
+.wl-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:4px;}
+
+
+/* PAGES */
+.page{display:none;position:relative;z-index:1;min-height:calc(100vh - var(--nav-h) - var(--bottom-h));padding:16px;}
+.page.active{display:block;}
+
+/* SEARCH BAR */
+.search-bar{display:flex;gap:8px;margin-bottom:16px;}
+.search-bar input{flex:1;background:var(--card);border:2px solid var(--border);border-radius:14px;padding:12px 16px;color:var(--text);font-size:0.95rem;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color 0.3s;}
+.search-bar input:focus{border-color:var(--accent);}
+.search-bar input::placeholder{color:var(--muted);}
+.search-bar button{background:var(--accent);border:none;border-radius:14px;padding:0 16px;color:white;font-size:1.1rem;cursor:pointer;}
+
+/* SEARCH DROPDOWN */
+.search-dropdown{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:none;margin-bottom:16px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
+.search-dropdown.show{display:block;}
+.sdrop-item{display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.2s;}
+.sdrop-item:last-child{border-bottom:none;}
+.sdrop-item:hover{background:rgba(255,255,255,0.05);}
+.sdrop-img{width:36px;height:50px;object-fit:cover;border-radius:6px;background:var(--surface);flex-shrink:0;}
+.sdrop-info h4{font-size:0.85rem;font-weight:700;margin-bottom:2px;}
+.sdrop-info p{font-size:0.72rem;color:var(--muted);}
+.sdrop-score{margin-left:auto;color:var(--gold);font-size:0.85rem;font-weight:700;flex-shrink:0;}
+
+/* SECTION */
+.section-title{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.dot{width:7px;height:7px;border-radius:50%;animation:pulse 2s ease infinite;}
+.dot-red{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.dot-gold{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+.dot-cyan{background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+.dot-green{background:var(--green);box-shadow:0 0 8px var(--green);}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+
+/* TABS */
+.tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:7px 16px;border-radius:100px;font-size:0.75rem;font-weight:700;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s;border:2px solid var(--border);color:var(--muted);background:transparent;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;}
+.tab.active{border-color:var(--accent);color:var(--accent);background:rgba(230,57,70,0.1);}
+
+/* ANIME GRID - mobile optimized */
+.anime-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+@media(min-width:480px){.anime-grid{grid-template-columns:repeat(4,1fr);}}
+.anime-card{background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:transform 0.2s,border-color 0.2s;position:relative;active:scale(0.97);}
+.anime-card:active{transform:scale(0.97);}
+.anime-rank{position:absolute;top:6px;left:6px;z-index:2;font-family:'Orbitron',monospace;font-size:0.62rem;font-weight:900;padding:2px 7px;border-radius:100px;}
+.fav-btn{position:absolute;top:6px;right:6px;z-index:2;background:rgba(0,0,0,0.5);border:none;border-radius:50%;width:28px;height:28px;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
+.fav-btn.active{background:rgba(230,57,70,0.8);}
+.rank-gold{background:var(--gold);color:#000;}
+.rank-silver{background:#c0c0c0;color:#000;}
+.rank-bronze{background:#cd7f32;color:#fff;}
+.rank-def{background:var(--accent);color:#fff;}
+.anime-thumb{width:100%;aspect-ratio:2/3;object-fit:cover;background:var(--surface);display:block;}
+.anime-thumb-ph{width:100%;aspect-ratio:2/3;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:2.5rem;}
+.anime-info{padding:8px;}
+.anime-info h3{font-size:0.72rem;font-weight:700;margin-bottom:4px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.anime-score{color:var(--gold);font-size:0.7rem;font-weight:700;}
+
+/* TRENDING LIST */
+.trend-list{display:flex;flex-direction:column;gap:10px;}
+.trend-item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 12px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.trend-item:active{transform:scale(0.98);}
+.trend-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);transform:scaleY(0);transition:transform 0.3s;}
+.trend-item:hover::before{transform:scaleY(1);}
+.trend-num{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;color:rgba(255,255,255,0.1);min-width:28px;}
+.trend-item:nth-child(1) .trend-num{color:var(--gold);}
+.trend-item:nth-child(2) .trend-num{color:#c0c0c0;}
+.trend-item:nth-child(3) .trend-num{color:#cd7f32;}
+.trend-img{width:42px;height:58px;object-fit:cover;border-radius:8px;background:var(--surface);flex-shrink:0;}
+.trend-img-ph{width:42px;height:58px;border-radius:8px;background:var(--surface);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5rem;}
+.trend-info{flex:1;min-width:0;}
+.trend-info h3{font-size:0.85rem;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.trend-info p{font-size:0.7rem;color:var(--muted);}
+.trend-badges{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;}
+.badge{font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:100px;}
+.badge-r{background:rgba(230,57,70,0.15);color:var(--accent);border:1px solid rgba(230,57,70,0.3);}
+.badge-c{background:rgba(0,245,212,0.1);color:var(--cyan);border:1px solid rgba(0,245,212,0.2);}
+.badge-g{background:rgba(255,214,10,0.1);color:var(--gold);border:1px solid rgba(255,214,10,0.2);}
+.trend-score{text-align:right;flex-shrink:0;}
+.trend-score .sc{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:900;color:var(--gold);}
+.trend-score .lb{font-size:0.6rem;color:var(--muted);}
+.trend-fav{background:none;border:none;font-size:1rem;cursor:pointer;margin-left:4px;}
+
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--muted);font-size:0.85rem;}
+.spinner{width:24px;height:24px;border-radius:50%;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--accent);animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:200;display:none;align-items:flex-end;padding:0;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--surface);border:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;width:100%;max-height:92vh;overflow-y:auto;position:relative;animation:slideUp 0.35s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;margin:12px auto 0;}
+.modal-close{position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:32px;height:32px;color:var(--text);font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+.modal-banner{width:100%;height:180px;object-fit:cover;object-position:top;display:block;}
+.modal-banner-ph{width:100%;height:140px;background:linear-gradient(135deg,#1a0a2e,#0d1b2a);display:flex;align-items:center;justify-content:center;font-size:4rem;}
+
+.modal-hero{display:flex;gap:16px;padding:16px;margin-top:-50px;position:relative;}
+.modal-poster{width:110px;min-width:110px;height:160px;object-fit:cover;border-radius:12px;border:3px solid var(--surface);box-shadow:0 8px 30px rgba(0,0,0,0.5);flex-shrink:0;background:var(--card);}
+.modal-poster-ph{width:110px;min-width:110px;height:160px;border-radius:12px;background:var(--card);border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-size:3rem;flex-shrink:0;}
+.modal-meta{flex:1;padding-top:54px;}
+.modal-meta h2{font-family:'Orbitron',monospace;font-size:1rem;font-weight:900;margin-bottom:3px;line-height:1.3;}
+.modal-meta .jp{color:var(--muted);font-size:0.78rem;margin-bottom:10px;}
+.modal-scores{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.score-box{background:var(--card);border-radius:10px;padding:8px 12px;text-align:center;border:1px solid var(--border);}
+.score-box .val{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;}
+.score-box .lbl{font-size:0.6rem;color:var(--muted);margin-top:1px;}
+.gold-box .val{color:var(--gold);}
+.cyan-box .val{color:var(--cyan);}
+.red-box .val{color:var(--accent);}
+.modal-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+.modal-desc{font-size:0.82rem;color:var(--muted);line-height:1.8;}
+.modal-fav-btn{display:flex;align-items:center;gap:8px;background:rgba(230,57,70,0.1);border:2px solid rgba(230,57,70,0.3);border-radius:12px;padding:10px 16px;color:var(--accent);font-size:0.85rem;font-weight:700;cursor:pointer;margin:12px 16px 0;width:calc(100% - 32px);justify-content:center;font-family:'Noto Sans JP',sans-serif;transition:all 0.2s;}
+.modal-fav-btn.active{background:rgba(230,57,70,0.25);border-color:var(--accent);}
+
+.modal-body{padding:0 16px 24px;}
+.modal-section{font-family:'Orbitron',monospace;font-size:0.75rem;font-weight:700;color:var(--cyan);letter-spacing:0.1em;text-transform:uppercase;margin:20px 0 12px;display:flex;align-items:center;gap:8px;}
+.modal-section::after{content:'';flex:1;height:1px;background:linear-gradient(to right,var(--cyan),transparent);opacity:0.3;}
+
+.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.info-item{background:var(--card);border-radius:10px;padding:10px;border:1px solid var(--border);}
+.info-item .key{font-size:0.6rem;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px;}
+.info-item .val{font-size:0.82rem;font-weight:700;}
+
+/* STAT BARS */
+.stat-bars{display:flex;flex-direction:column;gap:8px;}
+.stat-bar-row{display:flex;align-items:center;gap:10px;}
+.stat-bar-label{font-size:0.72rem;color:var(--muted);min-width:80px;text-align:right;}
+.stat-bar-track{flex:1;height:5px;background:rgba(255,255,255,0.07);border-radius:100px;overflow:hidden;}
+.stat-bar-fill{height:100%;border-radius:100px;background:linear-gradient(to right,var(--accent),var(--gold));}
+.stat-bar-val{font-size:0.7rem;font-weight:700;min-width:28px;}
+
+/* CHARACTERS */
+.char-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none;}
+.char-scroll::-webkit-scrollbar{display:none;}
+.char-card{background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all 0.2s;flex-shrink:0;width:110px;}
+.char-card:active{transform:scale(0.97);}
+.char-img{width:100%;height:120px;object-fit:cover;object-position:top;background:var(--surface);display:block;}
+.char-img-ph{width:100%;height:120px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:2.5rem;}
+.char-info{padding:8px;}
+.char-info h4{font-size:0.72rem;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.char-info p{font-size:0.65rem;color:var(--muted);}
+.char-role{font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:100px;display:inline-block;margin-top:4px;}
+.role-main{background:rgba(230,57,70,0.15);color:var(--accent);}
+.role-sup{background:rgba(123,47,255,0.15);color:#a96fff;}
+.role-vil{background:rgba(0,0,0,0.4);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3);}
+
+/* CHARACTER DETAIL MODAL */
+.char-detail{background:var(--card);border-radius:16px;padding:16px;margin-top:12px;border:1px solid var(--border);}
+.char-detail-header{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;}
+.char-detail-img{width:80px;height:110px;object-fit:cover;object-position:top;border-radius:10px;background:var(--surface);}
+.char-detail-img-ph{width:80px;height:110px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:2.5rem;flex-shrink:0;}
+.char-detail-meta h3{font-size:1rem;font-weight:700;margin-bottom:4px;}
+.char-detail-meta p{font-size:0.78rem;color:var(--muted);margin-bottom:6px;}
+.skill-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
+.skill-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 10px;}
+.skill-icon{font-size:1rem;flex-shrink:0;}
+.skill-text{flex:1;}
+.skill-text .sn{font-size:0.8rem;font-weight:700;margin-bottom:1px;}
+.skill-text .sd{font-size:0.7rem;color:var(--muted);}
+.skill-power{font-family:'Orbitron',monospace;font-size:0.75rem;font-weight:900;color:var(--gold);}
+.char-story{font-size:0.82rem;color:var(--muted);line-height:1.8;margin-top:10px;}
+
+/* COMPARE */
+.compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.compare-slot{background:var(--card);border:2px dashed var(--border);border-radius:16px;padding:12px;text-align:center;cursor:pointer;transition:all 0.2s;min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
+.compare-slot.filled{border-style:solid;border-color:rgba(0,245,212,0.3);}
+.compare-slot img{width:60px;height:85px;object-fit:cover;border-radius:8px;}
+.compare-slot h4{font-size:0.78rem;font-weight:700;margin-top:4px;}
+.compare-slot p{font-size:0.68rem;color:var(--muted);}
+.compare-slot .remove-btn{background:rgba(230,57,70,0.2);border:1px solid var(--accent);border-radius:6px;padding:3px 8px;font-size:0.65rem;color:var(--accent);cursor:pointer;margin-top:4px;}
+.compare-vs{display:flex;align-items:center;justify-content:center;font-family:'Orbitron',monospace;font-size:1.2rem;font-weight:900;color:var(--accent);position:absolute;left:50%;transform:translateX(-50%);}
+.compare-result{background:var(--card);border-radius:16px;padding:16px;border:1px solid var(--border);}
+.compare-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:10px;}
+.compare-val{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:900;text-align:center;}
+.compare-label{font-size:0.7rem;color:var(--muted);text-align:center;}
+.compare-win{color:var(--green);}
+.compare-lose{color:var(--muted);opacity:0.5;}
+
+/* CALENDAR */
+.cal-day{background:var(--card);border-radius:14px;padding:12px;margin-bottom:10px;border:1px solid var(--border);}
+.cal-day-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.cal-day-name{font-family:'Orbitron',monospace;font-size:0.8rem;font-weight:700;color:var(--cyan);}
+.cal-day-badge{background:rgba(0,245,212,0.1);border:1px solid rgba(0,245,212,0.2);color:var(--cyan);padding:2px 8px;border-radius:100px;font-size:0.65rem;font-weight:700;}
+.cal-anime{display:flex;align-items:center;gap:10px;padding:8px;background:rgba(255,255,255,0.03);border-radius:10px;margin-bottom:6px;cursor:pointer;}
+.cal-anime:last-child{margin-bottom:0;}
+.cal-anime img{width:36px;height:50px;object-fit:cover;border-radius:6px;background:var(--surface);}
+.cal-anime-info h4{font-size:0.8rem;font-weight:700;margin-bottom:2px;}
+.cal-anime-info p{font-size:0.68rem;color:var(--muted);}
+.cal-ep{margin-left:auto;background:var(--accent);color:white;border-radius:8px;padding:3px 8px;font-size:0.65rem;font-weight:700;flex-shrink:0;}
+.cal-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:30px;color:var(--muted);font-size:0.82rem;}
+
+/* FAVORITES PAGE */
+.fav-empty{text-align:center;padding:60px 20px;}
+.fav-empty .emoji{font-size:4rem;margin-bottom:16px;}
+.fav-empty h3{font-size:1.1rem;font-weight:700;margin-bottom:8px;}
+.fav-empty p{color:var(--muted);font-size:0.85rem;}
+.fav-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;}
+.fav-stat{background:var(--card);border-radius:12px;padding:12px;text-align:center;border:1px solid var(--border);}
+.fav-stat .val{font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:900;color:var(--accent);}
+.fav-stat .lbl{font-size:0.65rem;color:var(--muted);margin-top:2px;}
+
+/* PROFILE / LOGIN */
+.auth-wrap{max-width:400px;margin:0 auto;padding:10px 0;}
+.auth-tabs{display:flex;background:var(--card);border-radius:14px;padding:4px;margin-bottom:20px;border:1px solid var(--border);}
+.auth-tab{flex:1;padding:10px;text-align:center;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.85rem;transition:all 0.2s;border:none;background:transparent;color:var(--muted);font-family:'Noto Sans JP',sans-serif;}
+.auth-tab.active{background:var(--accent);color:white;}
+.auth-form{display:flex;flex-direction:column;gap:12px;}
+.auth-input{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--text);font-size:0.9rem;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color 0.3s;width:100%;}
+.auth-input:focus{border-color:var(--accent);}
+.auth-input::placeholder{color:var(--muted);}
+.auth-btn{background:var(--accent);border:none;border-radius:12px;padding:14px;color:white;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.2s;width:100%;}
+.auth-btn:hover{background:#c1121f;}
+.auth-divider{text-align:center;color:var(--muted);font-size:0.8rem;position:relative;margin:4px 0;}
+.auth-divider::before,.auth-divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--border);}
+.auth-divider::before{left:0;}.auth-divider::after{right:0;}
+.profile-card{background:var(--card);border-radius:20px;padding:24px;text-align:center;border:1px solid var(--border);margin-bottom:16px;}
+.profile-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--gold));display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 12px;}
+.profile-name{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;margin-bottom:4px;}
+.profile-email{font-size:0.78rem;color:var(--muted);margin-bottom:16px;}
+.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+.profile-stat{background:var(--surface);border-radius:10px;padding:10px;text-align:center;}
+.profile-stat .val{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;color:var(--accent);}
+.profile-stat .lbl{font-size:0.62rem;color:var(--muted);margin-top:2px;}
+.profile-menu{display:flex;flex-direction:column;gap:8px;}
+.profile-menu-item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all 0.2s;}
+.profile-menu-item:hover{background:rgba(255,255,255,0.05);}
+.profile-menu-item .mi-icon{font-size:1.2rem;width:28px;text-align:center;}
+.profile-menu-item .mi-text{flex:1;font-size:0.88rem;font-weight:700;}
+.profile-menu-item .mi-arrow{color:var(--muted);font-size:0.8rem;}
+.logout-btn{background:rgba(230,57,70,0.1);border:2px solid rgba(230,57,70,0.3);border-radius:12px;padding:14px;color:var(--accent);font-size:0.9rem;font-weight:700;cursor:pointer;width:100%;font-family:'Noto Sans JP',sans-serif;margin-top:8px;transition:all 0.2s;}
+.logout-btn:hover{background:rgba(230,57,70,0.2);}
+.auth-error{background:rgba(230,57,70,0.1);border:1px solid rgba(230,57,70,0.3);border-radius:10px;padding:10px 14px;font-size:0.82rem;color:var(--accent);display:none;}
+.auth-success{background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:10px 14px;font-size:0.82rem;color:var(--green);display:none;}
+.anime-rank-badge{background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:900;}
+
+.lang-modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
+.lang-modal.show{display:flex;}
+.lang-box{background:var(--surface);border-radius:20px;padding:24px;width:100%;max-width:320px;border:1px solid var(--border);}
+.lang-box h3{font-family:'Orbitron',monospace;font-size:1rem;font-weight:700;text-align:center;margin-bottom:16px;}
+.lang-option{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;cursor:pointer;transition:background 0.2s;margin-bottom:8px;}
+.lang-option:hover{background:rgba(255,255,255,0.05);}
+.lang-option.active{background:rgba(0,245,212,0.1);border:1px solid rgba(0,245,212,0.2);}
+.lang-flag{font-size:1.5rem;}
+.lang-name{font-weight:700;font-size:0.9rem;}
+.lang-native{font-size:0.75rem;color:var(--muted);}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(var(--bottom-h) + 12px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 20px;font-size:0.85rem;font-weight:700;z-index:500;opacity:0;transition:all 0.3s;white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Has<span>Anime</span></div>
+  <div class="header-right">
+    <button class="lang-btn" onclick="openLang()" title="Dil Seç">🌐 <span id="langLabel">TR</span></button>
+    <button class="random-btn" onclick="randomAnime()" title="Rastgele Anime">🎲</button>
+  </div>
+</header>
+
+<!-- PAGES -->
+
+<!-- 🏠 ANASAYFA -->
+<div class="page active" id="page-home">
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Anime ara..." autocomplete="off">
+    <button onclick="doSearch()">🔍</button>
+  </div>
+  <div class="search-dropdown" id="searchDrop"></div>
+
+  <div class="section-title"><div class="dot dot-gold"></div><span data-i18n="top">IMDb Top 12</span></div>
+  <div id="topGrid"><div class="loading"><div class="spinner"></div></div></div>
+
+  <br>
+  <div class="section-title"><div class="dot dot-red"></div><span data-i18n="trending">Trend Animeler 🔥</span></div>
+  <div class="tabs">
+    <button class="tab active" onclick="loadTrend(this,'bypopularity')" data-i18n="popular">En Popüler</button>
+    <button class="tab" onclick="loadTrend(this,'airing')" data-i18n="airing">Yayında</button>
+    <button class="tab" onclick="loadTrend(this,'favorite')" data-i18n="favorites2">Favoriler</button>
+  </div>
+  <div id="trendList"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ❤️ FAVORİLER -->
+<div class="page" id="page-favs">
+  <div class="section-title"><div class="dot dot-red"></div><span data-i18n="myFavs">Favorilerim ❤️</span></div>
+  <div id="favStats" class="fav-stats"></div>
+  <div id="favGrid"></div>
+</div>
+
+<!-- 📅 TAKVİM -->
+<div class="page" id="page-cal">
+  <div class="section-title"><div class="dot dot-cyan"></div><span data-i18n="schedule">Yayın Takvimi 📅</span></div>
+  <div id="calContent"><div class="cal-loading"><div class="spinner"></div><span data-i18n="loading">Yükleniyor...</span></div></div>
+</div>
+
+<!-- ⚔️ KARŞILAŞTIR -->
+<div class="page" id="page-compare">
+  <div class="section-title"><div class="dot dot-gold"></div><span data-i18n="compare">Anime Karşılaştır ⚔️</span></div>
+  <p style="font-size:0.8rem;color:var(--muted);margin-bottom:14px;" data-i18n="compareDesc">İki anime seç, hangisi daha iyi?</p>
+  <div style="position:relative;">
+    <div class="compare-wrap">
+      <div class="compare-slot" id="slot1" onclick="openSlotSearch(1)">
+        <div style="font-size:2rem">➕</div>
+        <p style="font-size:0.78rem;color:var(--muted);" data-i18n="selectAnime">Anime Seç</p>
+      </div>
+      <div class="compare-slot" id="slot2" onclick="openSlotSearch(2)">
+        <div style="font-size:2rem">➕</div>
+        <p style="font-size:0.78rem;color:var(--muted);" data-i18n="selectAnime">Anime Seç</p>
+      </div>
+    </div>
+  </div>
+  <div id="compareResult"></div>
+
+  <!-- slot search -->
+  <div id="slotSearchWrap" style="display:none;margin-top:12px;">
+    <div class="search-bar">
+      <input type="text" id="slotSearchInput" placeholder="Anime ara..." autocomplete="off">
+      <button onclick="cancelSlot()" style="background:var(--muted);">✕</button>
+    </div>
+    <div id="slotDrop"></div>
+  </div>
+</div>
+
+<!-- 👤 PROFİL / LOGIN -->
+<div class="page" id="page-profile">
+  <div id="profileContent"></div>
+</div>
+
+<!-- 📰 HABERLER -->
+<div class="page" id="page-news">
+  <div class="section-title"><div class="dot dot-cyan"></div>Anime Haberleri 📰</div>
+  <div id="newsContent"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- 🎮 QUİZ -->
+<div class="page" id="page-quiz">
+  <div class="section-title"><div class="dot dot-gold"></div>Anime Quiz 🎮</div>
+  <div id="quizContent"></div>
+</div>
+
+<!-- 🥊 KARAKTER DÖVÜŞÜ -->
+<div class="page" id="page-battle">
+  <div class="section-title"><div class="dot dot-red"></div>Karakter Dövüşü 🥊</div>
+  <div id="battleContent"></div>
+</div>
+
+<!-- 📋 İZLEME LİSTESİ -->
+<div class="page" id="page-watchlist">
+  <div class="section-title"><div class="dot dot-green"></div>İzleme Listem 📋</div>
+  <div id="watchlistContent"></div>
+</div>
+
+<!-- BOTTOM NAV - SVG İKONLAR -->
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="goPage('home',this)">
+    <div class="nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </div>
+    <span>Ana</span>
+  </button>
+  <button class="nav-item" onclick="goPage('watchlist',this)">
+    <div class="nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    </div>
+    <span>Liste</span>
+  </button>
+  <button class="nav-item" onclick="goPage('battle',this)">
+    <div class="nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 14l6 6"/><path d="M19 3l2 2-10 10"/></svg>
+    </div>
+    <span>Dövüş</span>
+  </button>
+  <button class="nav-item" onclick="goPage('quiz',this)">
+    <div class="nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <span>Quiz</span>
+  </button>
+  <button class="nav-item" onclick="goPage('news',this)">
+    <div class="nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6z"/></svg>
+    </div>
+    <span>Haber</span>
+  </button>
+  <button class="nav-item" onclick="goPage('favs',this)">
+    <div class="nav-icon-wrap">
+      <span class="nav-badge" id="favBadge" style="display:none">0</span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+    </div>
+    <span>Favori</span>
+  </button>
+  <button class="nav-item" onclick="goPage('profile',this)">
+    <div class="nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <span>Profil</span>
+  </button>
+</nav>
+
+<!-- ANIME DETAIL MODAL -->
+<div class="modal-overlay" id="animeModal" onclick="if(event.target===this)closeAnimeModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeAnimeModal()">✕</button>
+    <div id="animeModalContent"><div class="loading" style="min-height:200px"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- CHAR DETAIL MODAL -->
+<div class="modal-overlay" id="charModal" onclick="if(event.target===this)closeCharModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeCharModal()">✕</button>
+    <div id="charModalContent"></div>
+  </div>
+</div>
+
+<!-- LANG MODAL -->
+<div class="lang-modal" id="langModal" onclick="if(event.target===this)closeLang()">
+  <div class="lang-box">
+    <h3>🌐 Dil Seç / Language</h3>
+    <div class="lang-option active" id="lang-tr" onclick="setLang('tr')">
+      <span class="lang-flag">🇹🇷</span>
+      <div><div class="lang-name">Türkçe</div><div class="lang-native">Turkish</div></div>
+    </div>
+    <div class="lang-option" id="lang-en" onclick="setLang('en')">
+      <span class="lang-flag">🇬🇧</span>
+      <div><div class="lang-name">English</div><div class="lang-native">İngilizce</div></div>
+    </div>
+    <div class="lang-option" id="lang-ja" onclick="setLang('ja')">
+      <span class="lang-flag">🇯🇵</span>
+      <div><div class="lang-name">日本語</div><div class="lang-native">Japonca</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================== i18n =====================
+const LANGS = {
+  tr:{home:'Anasayfa',favs:'Favoriler',cal:'Takvim',vs:'Karşılaştır',top:'IMDb Top 12',trending:'Trend Animeler 🔥',popular:'En Popüler',airing:'Yayında',favorites2:'Favoriler',myFavs:'Favorilerim ❤️',schedule:'Yayın Takvimi 📅',compare:'Anime Karşılaştır ⚔️',compareDesc:'İki anime seç, hangisi daha iyi?',selectAnime:'Anime Seç',loading:'Yükleniyor...',addFav:'Favorilere Ekle ❤️',removeFav:'Favorilerden Çıkar 💔',noFavs:'Henüz favori yok',noFavsDesc:'Anime detayında ❤️ butonuna bas!',characters:'Karakterler',charStory:'Karakter Hikayesi',skills:'Yetenekler',info:'Anime Bilgileri',score:'Değerlendirme',reviews:'Yorumlar',monday:'Pazartesi',tuesday:'Salı',wednesday:'Çarşamba',thursday:'Perşembe',friday:'Cuma',saturday:'Cumartesi',sunday:'Pazar',episode:'Bölüm',totalFavs:'Toplam',avgScore:'Ort. Puan',topGenre:'Tür'},
+  en:{home:'Home',favs:'Favorites',cal:'Schedule',vs:'Compare',top:'IMDb Top 12',trending:'Trending 🔥',popular:'Most Popular',airing:'Airing',favorites2:'Favorites',myFavs:'My Favorites ❤️',schedule:'Airing Schedule 📅',compare:'Compare Anime ⚔️',compareDesc:'Pick two anime, which is better?',selectAnime:'Select Anime',loading:'Loading...',addFav:'Add to Favorites ❤️',removeFav:'Remove from Favorites 💔',noFavs:'No favorites yet',noFavsDesc:'Tap ❤️ on any anime detail!',characters:'Characters',charStory:'Character Story',skills:'Skills & Abilities',info:'Anime Info',score:'Score',reviews:'Reviews',monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday',episode:'Episode',totalFavs:'Total',avgScore:'Avg Score',topGenre:'Genre'},
+  ja:{home:'ホーム',favs:'お気に入り',cal:'放送',vs:'比較',top:'IMDbトップ12',trending:'トレンド 🔥',popular:'人気',airing:'放送中',favorites2:'お気に入り',myFavs:'お気に入り ❤️',schedule:'放送スケジュール 📅',compare:'アニメ比較 ⚔️',compareDesc:'2つのアニメを選んでください',selectAnime:'選択',loading:'読み込み中...',addFav:'お気に入り追加 ❤️',removeFav:'削除 💔',noFavs:'お気に入りなし',noFavsDesc:'❤️ボタンを押してください',characters:'キャラクター',charStory:'キャラクターストーリー',skills:'スキル',info:'情報',score:'評価',reviews:'レビュー',monday:'月曜日',tuesday:'火曜日',wednesday:'水曜日',thursday:'木曜日',friday:'金曜日',saturday:'土曜日',sunday:'日曜日',episode:'話',totalFavs:'合計',avgScore:'平均',topGenre:'ジャンル'},
+};
+let currentLang = localStorage.getItem('haslang') || 'tr';
+function t(k){return LANGS[currentLang][k]||LANGS.tr[k]||k;}
+function applyLang(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(LANGS[currentLang][k])el.textContent=LANGS[currentLang][k];});
+  document.getElementById('langLabel').textContent=currentLang.toUpperCase();
+}
+function setLang(l){
+  currentLang=l;localStorage.setItem('haslang',l);
+  document.querySelectorAll('.lang-option').forEach(o=>o.classList.remove('active'));
+  document.getElementById('lang-'+l).classList.add('active');
+  applyLang(); closeLang(); showToast('🌐 '+l.toUpperCase());
+}
+function openLang(){document.getElementById('langModal').classList.add('show');}
+function closeLang(){document.getElementById('langModal').classList.remove('show');}
+
+// ===================== API =====================
+const API = 'https://api.jikan.moe/v4';
+const cache = {};
+async function api(path){
+  if(cache[path])return cache[path];
+  await new Promise(r=>setTimeout(r,350));
+  const res = await fetch(API+path);
+  const data = await res.json();
+  cache[path]=data; return data;
+}
+
+// ===================== FAVORITES =====================
+let favs = JSON.parse(localStorage.getItem('hasfavs')||'[]');
+function isFav(id){return favs.some(f=>f.id===id);}
+function toggleFav(anime){
+  if(isFav(anime.id)){
+    favs=favs.filter(f=>f.id!==anime.id);
+    showToast('💔 '+t('removeFav'));
+  } else {
+    favs.push(anime);
+    showToast('❤️ '+t('addFav'));
+  }
+  localStorage.setItem('hasfavs',JSON.stringify(favs));
+  saveUserData();
+  updateFavBadge(); renderFavs();
+}
+function updateFavBadge(){
+  const b=document.getElementById('favBadge');
+  b.textContent=favs.length;
+  b.style.display=favs.length?'flex':'none';
+}
+
+// ===================== PAGES =====================
+let calLoaded=false;
+function goPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='favs')renderFavs();
+  if(id==='cal'&&!calLoaded){loadCal();calLoaded=true;}
+  window.scrollTo(0,0);
+}
+
+// ===================== TOAST =====================
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ===================== SCORE COLOR =====================
+function sc(s){if(s>=9)return'var(--cyan)';if(s>=8)return'var(--gold)';if(s>=7)return'var(--accent)';return'var(--muted)';}
+
+// ===================== TOP GRID =====================
+async function loadTop(){
+  try{
+    const data=await api('/top/anime?limit=12');
+    const animes=data.data||[];
+    const ranks=['rank-gold','rank-silver','rank-bronze'];
+    document.getElementById('topGrid').innerHTML=`<div class="anime-grid">${animes.map((a,i)=>`
+      <div class="anime-card" onclick="openAnime(${a.mal_id})">
+        <div class="anime-rank ${i<3?ranks[i]:'rank-def'}">#${i+1}</div>
+        <button class="fav-btn ${isFav(a.mal_id)?'active':''}" onclick="event.stopPropagation();quickFav(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})" title="Favori">❤️</button>
+        ${a.images?.jpg?.large_image_url?`<img class="anime-thumb" src="${a.images.jpg.large_image_url}" loading="lazy" alt="${a.title}">`:`<div class="anime-thumb-ph">🎌</div>`}
+        <div class="anime-info"><h3>${a.title}</h3><div class="anime-score" style="color:${sc(a.score)}">⭐ ${a.score||'?'}</div></div>
+      </div>`).join('')}</div>`;
+  }catch(e){document.getElementById('topGrid').innerHTML='<div class="loading">Yüklenemedi 😔</div>';}
+}
+
+function quickFav(id,title,img,score){
+  const a={id,title,image:img,score};
+  toggleFav(a);
+  document.querySelectorAll('.fav-btn').forEach(b=>{
+    const p=b.closest('.anime-card');
+    if(p&&p.querySelector('.anime-rank')){
+      // update all fav btns
+    }
+  });
+  loadTop();
+}
+
+// ===================== TRENDING =====================
+async function loadTrend(btn,filter){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('trendList').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  try{
+    const data=await api(`/top/anime?limit=10&filter=${filter}`);
+    const animes=data.data||[];
+    document.getElementById('trendList').innerHTML=`<div class="trend-list">${animes.map((a,i)=>`
+      <div class="trend-item" onclick="openAnime(${a.mal_id})">
+        <div class="trend-num">${String(i+1).padStart(2,'0')}</div>
+        ${a.images?.jpg?.image_url?`<img class="trend-img" src="${a.images.jpg.image_url}" loading="lazy">`:`<div class="trend-img-ph">🎌</div>`}
+        <div class="trend-info">
+          <h3>${a.title}</h3>
+          <p>${a.title_japanese||''} · ${a.year||''}</p>
+          <div class="trend-badges">
+            ${a.genres?.slice(0,2).map(g=>`<span class="badge badge-r">${g.name}</span>`).join('')||''}
+            <span class="badge badge-c">${a.status||''}</span>
+          </div>
+        </div>
+        <div class="trend-score"><div class="sc" style="color:${sc(a.score)}">⭐${a.score||'?'}</div><div class="lb">IMDb</div></div>
+        <button class="trend-fav" onclick="event.stopPropagation();quickFav(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})">${isFav(a.mal_id)?'❤️':'🤍'}</button>
+      </div>`).join('')}</div>`;
+  }catch(e){document.getElementById('trendList').innerHTML='<div class="loading">Yüklenemedi 😔</div>';}
+}
+
+// ===================== SEARCH =====================
+let searchTimeout;
+const sinput=()=>document.getElementById('searchInput');
+sinput().addEventListener('input',()=>{
+  clearTimeout(searchTimeout);
+  const q=sinput().value.trim();
+  if(!q){document.getElementById('searchDrop').classList.remove('show');return;}
+  searchTimeout=setTimeout(()=>fetchSearch(q,'searchDrop',id=>openAnime(id)),500);
+});
+sinput().addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();if(e.key==='Escape')document.getElementById('searchDrop').classList.remove('show');});
+document.addEventListener('click',e=>{if(!e.target.closest('.search-bar')&&!e.target.closest('.search-dropdown'))document.getElementById('searchDrop').classList.remove('show');});
+
+async function fetchSearch(q,dropId,onPick){
+  const drop=document.getElementById(dropId);
+  drop.innerHTML=`<div class="sdrop-item"><div class="sdrop-info"><h4>🔍 ${t('loading')}</h4></div></div>`;
+  drop.classList.add('show');
+  try{
+    const data=await fetch(`${API}/anime?q=${encodeURIComponent(q)}&limit=6`).then(r=>r.json());
+    const results=data.data||[];
+    if(!results.length){drop.innerHTML=`<div class="sdrop-item"><div class="sdrop-info"><h4>Sonuç yok 😔</h4></div></div>`;return;}
+    drop.innerHTML=results.map(a=>`
+      <div class="sdrop-item" onclick="${onPick.toString().includes('openAnime')?`openAnime(${a.mal_id});document.getElementById('${dropId}').classList.remove('show');sinput().value=''`:`pickSlot(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})`}">
+        ${a.images?.jpg?.small_image_url?`<img class="sdrop-img" src="${a.images.jpg.small_image_url}">`:`<div class="sdrop-img" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem">🎌</div>`}
+        <div class="sdrop-info"><h4>${a.title}</h4><p>${a.title_japanese||''} · ${a.year||''}</p></div>
+        <div class="sdrop-score">⭐${a.score||'?'}</div>
+      </div>`).join('');
+  }catch(e){drop.innerHTML=`<div class="sdrop-item"><div class="sdrop-info"><h4>Hata 😔</h4></div></div>`;}
+}
+function doSearch(){fetchSearch(sinput().value.trim(),'searchDrop',id=>openAnime(id));}
+
+// ===================== RANDOM ANIME =====================
+async function randomAnime(){
+  showToast('🎲 Rastgele anime seçiliyor...');
+  try{
+    const page=Math.floor(Math.random()*10)+1;
+    const data=await api(`/top/anime?limit=25&page=${page}`);
+    const animes=data.data||[];
+    const pick=animes[Math.floor(Math.random()*animes.length)];
+    if(pick)openAnime(pick.mal_id);
+  }catch(e){showToast('😔 Hata oluştu');}
+}
+
+// ===================== ANIME MODAL =====================
+async function openAnime(id){
+  document.getElementById('animeModal').classList.add('show');
+  document.body.style.overflow='hidden';
+  document.getElementById('animeModalContent').innerHTML='<div class="loading" style="min-height:200px"><div class="spinner"></div></div>';
+  try{
+    const [ar,cr]=await Promise.all([api(`/anime/${id}/full`),api(`/anime/${id}/characters`)]);
+    const a=ar.data; const chars=(cr.data||[]).slice(0,10);
+    const isFaved=isFav(a.mal_id);
+
+    // Translate synopsis
+    let synopsis = a.synopsis?a.synopsis.replace('[Written by MAL Rewrite]','').trim().substring(0,400):'Açıklama yok.';
+    if(currentLang!=='en' && synopsis.length>20){
+      synopsis = await translateWithAI(synopsis, currentLang, 'synopsis');
+    }
+
+    document.getElementById('animeModalContent').innerHTML=`
+      ${a.images?.jpg?.large_image_url?`<img class="modal-banner" src="${a.images.jpg.large_image_url}">`:`<div class="modal-banner-ph">🎌</div>`}
+      <div class="modal-hero">
+        ${a.images?.jpg?.large_image_url?`<img class="modal-poster" src="${a.images.jpg.large_image_url}">`:`<div class="modal-poster-ph">🎌</div>`}
+        <div class="modal-meta">
+          <h2>${a.title}</h2>
+          <div class="jp">${a.title_japanese||''}</div>
+          <div class="modal-scores">
+            <div class="score-box gold-box"><div class="val">⭐${a.score||'?'}</div><div class="lbl">IMDb</div></div>
+            <div class="score-box cyan-box"><div class="val">#${a.rank||'?'}</div><div class="lbl">Rank</div></div>
+            <div class="score-box red-box"><div class="val">${a.episodes||'?'}</div><div class="lbl">Ep</div></div>
+          </div>
+          <div class="modal-tags">
+            ${a.genres?.slice(0,3).map(g=>`<span class="badge badge-r">${g.name}</span>`).join('')||''}
+            <span class="badge badge-c">${a.status||''}</span>
+          </div>
+          <p class="modal-desc">${synopsis}</p>
+        </div>
+      </div>
+      <button class="modal-fav-btn ${isFaved?'active':''}" id="modalFavBtn" onclick="toggleFavModal(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})">
+        ${isFaved?'❤️ '+t('removeFav'):'🤍 '+t('addFav')}
+      </button>
+      <button class="modal-fav-btn" style="background:rgba(255,214,10,0.1);border-color:rgba(255,214,10,0.3);color:var(--gold);margin-top:8px;" onclick="addToWatchlist({id:${a.mal_id},title:'${(a.title||'').replace(/'/g,"\\'")}',image:'${a.images?.jpg?.image_url||''}',score:${a.score||0}})">
+        📋 İzleme Listesine Ekle
+      </button>
+      <div class="modal-body">
+        <div class="modal-section">📋 ${t('info')}</div>
+        <div class="info-grid">
+          <div class="info-item"><div class="key">Tür</div><div class="val">${a.type||'?'}</div></div>
+          <div class="info-item"><div class="key">Bölüm</div><div class="val">${a.episodes||'?'}</div></div>
+          <div class="info-item"><div class="key">Stüdyo</div><div class="val">${a.studios?.[0]?.name||'?'}</div></div>
+          <div class="info-item"><div class="key">Yayın</div><div class="val">${a.year||'?'}</div></div>
+          <div class="info-item"><div class="key">Durum</div><div class="val">${a.status||'?'}</div></div>
+          <div class="info-item"><div class="key">Popülerlik</div><div class="val">#${a.popularity||'?'}</div></div>
+        </div>
+        <div class="modal-section">📊 ${t('score')}</div>
+        <div class="stat-bars">
+          ${[['IMDb',Math.round((a.score||0)*10)],['Popülerlik',Math.max(0,100-Math.round((a.popularity||100)/80))],['Üye',Math.min(100,Math.round((a.members||0)/15000))],['Favori',Math.min(100,Math.round((a.favorites||0)/3000))]].map(([l,v])=>`
+          <div class="stat-bar-row"><div class="stat-bar-label">${l}</div><div class="stat-bar-track"><div class="stat-bar-fill" style="width:${v}%"></div></div><div class="stat-bar-val">${v}</div></div>`).join('')}
+        </div>
+        ${chars.length?`
+        <div class="modal-section">👥 ${t('characters')}</div>
+        <div class="char-scroll">
+          ${chars.map(c=>`
+          <div class="char-card" onclick="openChar(${c.character.mal_id},'${(c.character.name||'').replace(/'/g,"\\'")}','${c.character.images?.jpg?.image_url||''}','${c.role||''}')">
+            ${c.character.images?.jpg?.image_url?`<img class="char-img" src="${c.character.images.jpg.image_url}" loading="lazy">`:`<div class="char-img-ph">👤</div>`}
+            <div class="char-info">
+              <h4>${c.character.name}</h4>
+              <p>${c.voice_actors?.[0]?.person?.name||''}</p>
+              <span class="char-role ${c.role==='Main'?'role-main':c.role==='Supporting'?'role-sup':'role-vil'}">${c.role==='Main'?'Ana':c.role==='Supporting'?'Destek':'Diğer'}</span>
+            </div>
+          </div>`).join('')}
+        </div>`:''}
+      </div>`;
+  }catch(e){document.getElementById('animeModalContent').innerHTML='<div class="loading" style="min-height:200px">Yüklenemedi 😔</div>';}
+}
+
+function toggleFavModal(id,title,img,score){
+  const a={id,title,image:img,score};
+  toggleFav(a);
+  const btn=document.getElementById('modalFavBtn');
+  if(btn){btn.className='modal-fav-btn'+(isFav(id)?' active':'');btn.textContent=isFav(id)?'❤️ '+t('removeFav'):'🤍 '+t('addFav');}
+}
+function closeAnimeModal(){document.getElementById('animeModal').classList.remove('show');document.body.style.overflow='';}
+
+// ===================== CHARACTER MODAL =====================
+// Extra character data (skills & stories)
+const CHAR_EXTRA = {
+  default:{
+    story:'Bu karakter hakkında detaylı hikaye bilgisi bulunmaktadır. Yıllar içinde geçirdiği deneyimler onu şekillendirmiş ve güçlü bir savaşçıya dönüştürmüştür.',
+    skills:[
+      {icon:'⚡',name:'Temel Yetenek',desc:'Karakterin ana gücü',power:80},
+      {icon:'🛡️',name:'Savunma',desc:'Güçlü savunma kapasitesi',power:70},
+      {icon:'💨',name:'Hız',desc:'Olağanüstü çeviklik',power:75},
+    ]
+  }
+};
+
+async function translateWithAI(text, targetLang, type='general'){
+  if(targetLang==='en'||!text||text.length<10) return text;
+  try{
+    const langCode=targetLang==='tr'?'en|tr':targetLang==='ja'?'en|ja':'en|tr';
+    const chunks=text.match(/.{1,450}/g)||[text];
+    let result='';
+    for(const chunk of chunks.slice(0,2)){
+      await new Promise(r=>setTimeout(r,300));
+      const res=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${langCode}&de=hasanime@gmail.com`);
+      const data=await res.json();
+      if(data.responseStatus===200&&data.responseData?.translatedText){
+        result+=data.responseData.translatedText+' ';
+      } else { result+=chunk+' '; }
+    }
+    return result.trim()||text;
+  }catch(e){return text;}
+}
+
+async function getSkillsFromWiki(charName){
+  try{
+    const searchRes=await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(charName+' anime character')}&format=json&origin=*&srlimit=1`);
+    const searchData=await searchRes.json();
+    const pageTitle=searchData?.query?.search?.[0]?.title;
+    if(!pageTitle) return null;
+    const pageRes=await fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pageTitle)}&prop=extracts&format=json&origin=*&exchars=2000`);
+    const pageData=await pageRes.json();
+    const pages=pageData?.query?.pages;
+    const page=pages?.[Object.keys(pages)[0]];
+    return page?.extract||null;
+  }catch(e){return null;}
+}
+
+const SKILL_DB={
+  'Naruto Uzumaki':[
+    {icon:'🌀',name:'Rasengan (螺旋丸)',desc:'Chakrayı avucunda döndürerek oluşturduğu enerji küresidir. Minato\'nun icat ettiği, Naruto\'nun en temel tekniğidir. Hedefe temas ettiğinde içine çekerek parçalar.',power:85},
+    {icon:'🌪️',name:'Rasenshuriken (螺旋手裏剣)',desc:'Rasengan\'ı rüzgar doğasıyla birleştirerek oluşturulan dönen yıldız tekniği. S-rank tekniktir — hücre düzeyinde hasar verir.',power:94},
+    {icon:'👥',name:'Kage Bunshin no Jutsu (影分身の術)',desc:'Gerçek chakra kullanan fiziksel kopyalar oluşturur. Kopyalar öğrendiklerini ana Naruto\'ya aktarır. Naruto\'nun ikonik tekniği.',power:80},
+    {icon:'🐸',name:'Sage Mode - Toad Sage (仙人モード)',desc:'Doğa enerjisini chakrasıyla harmanlayarak girer. Fiziksel güç, hız ve algı yeteneği olağanüstü artar. Frog Kata dövüş stili kullanılabilir.',power:90},
+    {icon:'🦊',name:'Kyuubi Bijuu Modu (尾獣モード)',desc:'Kurama ile tam iş birliği yaparak vücudunu altın chakra zırhıyla kaplar. Bijuu topları atabilir, tüm yetenekleri katlanır.',power:96},
+    {icon:'✨',name:'Altı Yol Sage Modu (六道仙人モード)',desc:'Hagoromo\'dan alınan güç. 9 Gerçeği Arayan Küre elde eder, tüm doğaları kullanabilir ve uçabilir. Neredeyse tanrı seviyesinde.',power:99},
+    {icon:'⚡',name:'Baryon Modu (バリオンモード)',desc:'Kurama\'nın chakrasını nükleer füzyon gibi birleştirerek ulaşılan en güçlü form. Dokunulan düşmanların ömrünü azaltır ama Kurama\'nın ölümüne yol açar.',power:100},
+    {icon:'🐊',name:'Frog Kata - Doğa Enerjisi Dövüşü',desc:'Sage Modu\'nda öğrenilen dövüş stili. Vücudu etrafındaki görünmez doğa enerjisi sayesinde "dokunamadan" bile hasar verebilir.',power:88},
+  ],
+  'Sasuke Uchiha':[
+    {icon:'👁️',name:'Sharingan (写輪眼)',desc:'Uchiha soyunun özel gözü. Her hareketi kopyalar, genjutsu uygular ve hızı takip edebilir. Zamanla Mangekyou ve Rinnegan\'a evrilir.',power:82},
+    {icon:'🔥',name:'Amaterasu (天照)',desc:'Mangekyou Sharingan\'ın gücüyle sol gözünden sönmez siyah alevler çıkarır. Hiçbir şey bu alevleri söndüremez.',power:95},
+    {icon:'⚡',name:'Chidori / Raikiri (千鳥/雷切)',desc:'Binlerce kuşun sesine benzeyen yıldırım chakrası tekniği. Delici gücü son derece yüksek. Kakashi\'den öğrenilmiştir.',power:88},
+    {icon:'🌩️',name:'Kirin (麒麟)',desc:'Gökyüzündeki gerçek yıldırımı chakrasıyla şekillendirir. Işık hızına yakın — neredeyse savunulamaz.',power:97},
+    {icon:'🌑',name:'Susanoo - Tam Form (須佐能乎)',desc:'Her iki Mangekyou gözü açıkken oluşturulan dev savaşçı ruhu. Yata Aynası ve Amenonuhoko\'yu kullanır.',power:98},
+    {icon:'🔵',name:'Rinnegan Yetenekleri (輪廻眼)',desc:'Kütleçekimi manipülasyonu, ölüleri diriltme, tüm doğaları kullanabilme. Boyutlararası açılım yapabilir.',power:99},
+    {icon:'🌀',name:'Izanagi / Izanami (伊邪那岐/伊邪那美)',desc:'Uchiha\'nın yasak tekniği. Izanagi gerçekliği değiştirir, Izanami düşmanı sonsuz döngüye hapseder. Bir gözü sonsuza kör eder.',power:96},
+  ],
+  'Ichigo Kurosaki':[
+    {icon:'🌙',name:'Getsuga Tensho (月牙天衝)',desc:'Zangetsu\'yu sallayarak oluşturulan yoğun ruh enerjisi dalgası. Yarım ay şeklinde fırlatılır. Bankai\'de altın rengi alır ve çok daha güçlüdür.',power:90},
+    {icon:'🐆',name:'Bankai: Tensa Zangetsu (卍解・天鎖斬月)',desc:'Nihai Shinigami formu. Büyük kılıç küçük ama son derece güçlü bir nodachi\'ye dönüşür. Hız ve güç dramatik biçimde artar.',power:95},
+    {icon:'⬛',name:'Final Getsuga Tensho: Mugetsu (無月)',desc:'Tüm Shinigami gücünü tek saldırıya yoğunlaştırır. Kullandıktan sonra ruh gücü tamamen biter. Aizen\'ı yenen teknik.',power:100},
+    {icon:'🦁',name:'Hollow Maskesi & Vizard Güçleri',desc:'İçindeki Hollow\'un gücüyle maskesini takar. Güç ve hız 10 kat artar, Cero enerji topu atabilir.',power:93},
+    {icon:'⚔️',name:'True Shikai: Çift Zangetsu (真の始解)',desc:'Hem Shinigami hem Quincy güçlerini birleştiren gerçek form. İki kılıç aynı anda kullanılır, Getsuga Jujisho atılabilir.',power:97},
+    {icon:'🌑',name:'Horn of Salvation - Tam Hollow Form',desc:'Yhwach\'ın gücünü kullanarak aktive edilen tam Hollow formu. Sol taraf siyah işaretlerle kaplanır, Zangetsu beyaza döner.',power:99},
+  ],
+  'Goku':[
+    {icon:'💥',name:'Kamehameha (かめはめ波)',desc:'Elleri bir araya getirerek biriktirilen enerjiyi mavi dalga olarak fırlatır. Sayısız versiyonu var: Instant, 10x, Super, Father-Son.',power:88},
+    {icon:'🐒',name:'Super Saiyan Dönüşümleri (超サイヤ人)',desc:'SSJ1\'den SSJ4\'e kadar uzanan güç dönüşümleri, ardından SSJ God ve SSJ Blue. Her form öncekinden çok daha güçlüdür.',power:95},
+    {icon:'🐉',name:'Genki Dama / Spirit Bomb (元気玉)',desc:'Çevresindeki canlılardan enerji toplayarak oluşturulan devasa küre. Kötü kalplilere hasar verir.',power:93},
+    {icon:'⚡',name:'Instant Transmission & Kaio-ken (瞬間移動)',desc:'Herhangi bir canlının ki\'sini hissederek anında ışınlanır. Kaio-ken ile birleştirince inanılmaz avantaj sağlar.',power:87},
+    {icon:'🌟',name:'Ultra İçgüdü (身勝手の極意)',desc:'Vücut bilinç dışı hareket eder. Tam formda saçlar ve gözler gümüşe döner. Tanrıları bile geçen seviye.',power:100},
+    {icon:'💜',name:'Hakai (破壊)',desc:'Beerus\'tan öğrenilen tanrısal yıkım gücü. Hedefi varoluştan tamamen siler — ruh bile kalmaz.',power:99},
+  ],
+  'Eren Yeager':[
+    {icon:'⚙️',name:'Saldırı Titanı (進撃の巨人)',desc:'15 metrelik savaşçı titana dönüşür. Yaraları hızla iyileşir. Geleceği görebilir ve bu gücü hedeflerine ulaşmak için kullanır.',power:88},
+    {icon:'💎',name:'Sert Cisimleşme (硬質化)',desc:'Titan bedenini kristalize ederek zırh veya yapılar oluşturur. Wall Titans\'ı bu güçle inşa etmiştir.',power:85},
+    {icon:'🔥',name:'Yakıcı Titan Gücü',desc:'Jaw Titan\'ın gücünü geçici olarak kullanabilir. Ateş ve ısı bazlı saldırılar yapar.',power:80},
+    {icon:'👑',name:'Kurucu Titan Gücü (始祖の巨人)',desc:'Tüm titanları ve tüm Eldialıları kontrol eder. Bellekleri silip yazar. Rumbling ile Wall Titans\'ı serbest bırakır.',power:100},
+  ],
+  'Levi Ackerman':[
+    {icon:'⚔️',name:'Çoklu Dilim Tekniği',desc:'ODM ekipmanı ile düşmanın etrafında dönerek birden fazla noktadan aynı anda saldırır. Titan ensesini mükemmel keser.',power:99},
+    {icon:'💨',name:'Ackerman Güç Patlaması',desc:'Ackerman soyunun genetik hafızasından gelen içgüdüsel savaş yeteneği. Tehlikeyi önceden sezebilir, normal insanın 10 katı güç.',power:97},
+    {icon:'🛡️',name:'Savaş Alanı Analizi',desc:'Tüm savaş alanını aynı anda analiz eder. En verimli hareket rotasını anında hesaplar. Taktik dehası.',power:93},
+  ],
+  'Mikasa Ackerman':[
+    {icon:'🎋',name:'Ackerman Güç Patlaması',desc:'Kritik anlarda Ackerman soyunun tüm savaş hafızasına erişir. Hız ve güç olağanüstü seviyeye ulaşır.',power:93},
+    {icon:'⚔️',name:'Çift Kılıç & ODM Ustalığı',desc:'İki kılıcı aynı anda ustalıkla kullanır. ODM ile yapılar arasında rüzgar gibi kayar. Titan ensesini mükemmel keser.',power:91},
+    {icon:'💪',name:'Fiziksel Üstünlük',desc:'Ackerman kanından gelen doğal fiziksel üstünlük. Normal insanların çok ötesinde güç ve dayanıklılık.',power:88},
+  ],
+  'Killua Zoldyck':[
+    {icon:'⚡',name:'Godspeed (神速)',desc:'Elektrik Nen\'ini tüm vücuduna yayarak düşünceden önce hareket eder. Gözle takip edilemez hıza ulaşır.',power:96},
+    {icon:'🌩️',name:'Lightning Palm & Narukami',desc:'Avucundan yayılan elektrik darbesi ile hedefi felç eder. Narukami versiyonunda uzaktan yıldırım fırlatır.',power:90},
+    {icon:'🎯',name:'Kanmuru - İç Organ Delme',desc:'Parmaklarını yıldırım hızında hareket ettirerek düşmanın iç organlarını parçalar. Zoldyck ailesinin suikast tekniği.',power:92},
+    {icon:'🌀',name:'Rhythm Echo & Gizlenme',desc:'Çoklu hayalet görüntüler bırakarak hareket eder. Vücudunu tamamen gizleyerek algıdan çıkar.',power:85},
+  ],
+  'Gon Freecss':[
+    {icon:'🌿',name:'Jajanken - Rock (グー)',desc:'Tüm aura\'sını yumruğuna yoğunlaştırarak devasa güçte bir yumruk atar. Hazırlanması zaman alır ama yıkım gücü inanılmazdır.',power:92},
+    {icon:'✂️',name:'Jajanken - Scissors (チョキ)',desc:'Aura\'yı iki parmağa yoğunlaştırarak uzayan keskin bıçaklar oluşturur. Mesafeden kesme saldırısı yapar.',power:85},
+    {icon:'🪨',name:'Jajanken - Paper (パー)',desc:'Aura\'yı avucuna yoğunlaştırarak güçlü bir itme darbesi yapar. Geniş etki alanı, savunma kırma özelliği.',power:87},
+  ],
+  'Frieren':[
+    {icon:'🌙',name:'Zoltraak (ゾルトラーク)',desc:'Demons\'un en güçlü saldırı büyüsü. Frieren kendi yorumuyla bunu genel saldırı büyüsüne dönüştürdü. Minimum enerjiyle maksimum etki.',power:85},
+    {icon:'✨',name:'Çok Katmanlı Büyü Sistemi',desc:'Birden fazla büyüyü aynı anda katmanlar halinde kullanır. Düşman hangisinin gerçek olduğunu anlayamaz.',power:97},
+    {icon:'❄️',name:'Yavaş Alan & Dondurma Büyüsü',desc:'Hedefin hareketini yavaşlatan görünmez alan ve geniş dondurma büyüsü. Savunma ve kontrol odaklı.',power:88},
+    {icon:'🔮',name:'Büyü Analizi (魔法解析)',desc:'1000 yıllık deneyimiyle herhangi bir büyüyü anında analiz edip karşı tedbir geliştirebilir. Mana miktarını tamamen gizleyebilir.',power:99},
+  ],
+  'Monkey D. Luffy':[
+    {icon:'🌋',name:'Gear Second & Third (ギア2・3)',desc:'Gear 2\'de kan hızlanır ve hız dramatik artar. Gear 3\'te Gigant topları dev boyuta ulaşır.',power:85},
+    {icon:'💪',name:'Gear Fourth: Boundman (ギア4)',desc:'Kauçuk bedenini Haki ile şişirerek dev ve güçlü bir forma girer. Punch\'lar yıkıcı güce ulaşır, uçabilir.',power:95},
+    {icon:'⚫',name:'Conqueror\'s Haki - Coating (覇王色の覇気)',desc:'Sadece seçilmiş kişilerde bulunan Haki. Güçsüz düşmanları bayıltır. Gelişmiş formda silahı kaplayarak inanılmaz hasar verir.',power:98},
+    {icon:'🔴',name:'Gear Fifth: Sun God Nika (ギア5)',desc:'Nika\'nın gerçek formunu açığa çıkarır. Çevreyi çizgi film gibi manipüle edebilir. Sınırsız özgürlükle savaşır.',power:100},
+    {icon:'🤜',name:'Red Roc & Advanced Attacks',desc:'Gear Third\'ü ateş ve Haki ile birleştiren dev kor ateş yumruğu.',power:93},
+  ],
+  'Roronoa Zoro':[
+    {icon:'⚔️',name:'Santoryu - Üç Kılıç Stili (三刀流)',desc:'Üç kılıç kullanma stili. Ağzında bir kılıç tutarak üç kılıçla saldırır. Nitoryu ve Ittoryu\'yu da bilir.',power:96},
+    {icon:'🌪️',name:'Asura (阿修羅)',desc:'Hayalet Asura\'yı çağırarak dokuz kılıçlı dev bir form oluşturur. Rakipler gerçek mi illüzyon mu anlayamaz.',power:99},
+    {icon:'💨',name:'Tatsu Maki & Kasen Özel Saldırıları',desc:'Tatsu Maki dev hortum oluşturur, Kasen ise çoklu dilim saldırısıdır. Geniş alana hasar verir.',power:91},
+    {icon:'🗡️',name:'Enma + Haki Coating',desc:'En güçlü kılıç Enma\'yı Haki ile kaplar. Dünyanın en güçlü kılıç ustası olmaya yaklaşan vuruşlar.',power:98},
+  ],
+  'Edward Elric':[
+    {icon:'⚗️',name:'El Çırpmadan Simya',desc:'Normal simyacılar çember çizmek zorundayken Edward el çırparak simya yapar. Kapının bilgisini kullandığı için mümkün.',power:90},
+    {icon:'🏔️',name:'Otomail & Madde Dönüşümü',desc:'Metal protez kolunu çeşitli silahlara dönüştürür. Toprak, taş ve metali şekillendirir. Duvarlar, mızraklar ve kapanlar oluşturur.',power:85},
+    {icon:'✨',name:'Sınır Ötesi Simya (門の向こう側)',desc:'Felsefe Taşı\'na gerek kalmadan sınır ötesi dönüşümler gerçekleştirir. Son derece nadir ve güçlüdür.',power:97},
+  ],
+  'default':[
+    {icon:'⚡',name:'Özel Saldırı Tekniği',desc:'Yıllar süren antrenman sonucu geliştirilen karaktere özgü teknik.',power:82},
+    {icon:'🛡️',name:'Savunma Duruşu',desc:'Gelen saldırıları en az hasar alacak şekilde karşılayan özel manevra.',power:72},
+    {icon:'💨',name:'Hız Patlaması',desc:'Ani güç artışıyla olağanüstü hıza ulaşır ve beklenmedik anda darbe indirir.',power:78},
+  ]
+};
+
+function getSkills(charName){
+  if(SKILL_DB[charName]) return SKILL_DB[charName];
+  for(const key of Object.keys(SKILL_DB)){
+    if(key==='default') continue;
+    const kFirst=key.split(' ')[0].toLowerCase();
+    const cFirst=charName.split(' ')[0].toLowerCase();
+    if(charName.toLowerCase().includes(kFirst)||key.toLowerCase().includes(cFirst)){
+      return SKILL_DB[key];
+    }
+  }
+  return SKILL_DB['default'];
+}
+
+async function generateSkillsWithAI(charName, charAbout, targetLang){
+  // First check skill DB
+  const dbSkills = getSkills(charName);
+  if(dbSkills !== SKILL_DB['default']) return dbSkills;
+
+  // For unknown characters, extract abilities from their about text
+  if(charAbout && charAbout.length > 50){
+    const icons = ['⚡','🔥','🌊','💨','🌀','💎','🌙','☀️','⚔️','🛡️','🐉','🌸','✨','🎯','💥'];
+    const skills = [];
+
+    // Look for ability keywords in the text
+    const abilityPatterns = [
+      /(?:can|able to|uses?|wields?|possesses?|has the ability to|known for)\s+([^,.;]{15,80})/gi,
+      /(?:his|her|their)\s+(?:main|primary|special|unique|signature|most powerful)\s+(?:ability|power|technique|skill|weapon)\s+(?:is|are|being)\s+([^,.;]{10,70})/gi,
+      /([A-Z][^,.;]{10,60}(?:technique|ability|power|form|mode|style|jutsu|magic|skill))/g,
+    ];
+
+    for(const pattern of abilityPatterns){
+      const matches = [...charAbout.matchAll(pattern)];
+      for(const m of matches){
+        const skill = (m[1]||'').trim().replace(/<[^>]*>/g,'');
+        if(skill.length > 10 && skill.length < 80 && skills.length < 5){
+          // Translate skill if needed
+          let skillName = skill.length > 40 ? skill.substring(0,40)+'...' : skill;
+          let skillDesc = skill;
+          if(targetLang !== 'en'){
+            try{
+              const translated = await translateWithAI(skill, targetLang);
+              skillDesc = translated;
+            }catch(e){}
+          }
+          skills.push({
+            icon: icons[skills.length % icons.length],
+            name: skillName,
+            desc: skillDesc,
+            power: 70 + Math.floor(Math.random()*25)
+          });
+        }
+      }
+      if(skills.length >= 3) break;
+    }
+
+    if(skills.length >= 2) return skills;
+
+    // If no patterns found, create skills from general description
+    const sentences = charAbout.split(/[.!?]/).filter(s=>s.trim().length > 20).slice(0,3);
+    if(sentences.length > 0){
+      const generatedSkills = [];
+      for(let i=0; i<Math.min(sentences.length, 3); i++){
+        let desc = sentences[i].trim();
+        if(targetLang !== 'en'){
+          try{ desc = await translateWithAI(desc, targetLang); }catch(e){}
+        }
+        generatedSkills.push({
+          icon: icons[i],
+          name: `${charName.split(' ')[0]}\'ın Yeteneği ${i+1}`,
+          desc: desc,
+          power: 70 + Math.floor(Math.random()*25)
+        });
+      }
+      if(generatedSkills.length > 0) return generatedSkills;
+    }
+  }
+
+  return SKILL_DB['default'];
+}
+
+async function openChar(id,name,img,role){
+  document.getElementById('charModal').classList.add('show');
+  document.body.style.overflow='hidden';
+  const extra=CHAR_EXTRA[id]||CHAR_EXTRA.default;
+
+  // Show skeleton with loading story
+  document.getElementById('charModalContent').innerHTML=`
+    <div style="padding:16px;"><div class="char-detail">
+      <div class="char-detail-header">
+        ${img?`<img class="char-detail-img" src="${img}">`:`<div class="char-detail-img-ph">👤</div>`}
+        <div class="char-detail-meta"><h3>${name}</h3>
+          <p style="color:var(--muted);font-size:0.78rem">${role==='Main'?'Ana Karakter':role==='Supporting'?'Destek Karakter':'Karakter'}</p>
+          <div style="display:inline-block;margin-top:6px;background:rgba(0,245,212,0.1);border:1px solid rgba(0,245,212,0.2);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:var(--cyan);">🌐 AI Çeviri yapılıyor...</div>
+        </div>
+      </div>
+      <div class="modal-section">📖 ${t('charStory')}</div>
+      <div class="loading" style="padding:16px 0"><div class="spinner"></div></div>
+      <div class="modal-section">⚡ ${t('skills')}</div>
+      <div class="skill-list">${extra.skills.map(s=>`<div class="skill-item"><div class="skill-icon">${s.icon}</div><div class="skill-text"><div class="sn">${s.name}</div><div class="sd">${s.desc}</div></div><div class="skill-power">${s.power}/100</div></div>`).join('')}</div>
+    </div></div>`;
+
+  try{
+    const data=await api(`/characters/${id}/full`);
+    const c=data.data;
+    let about=c?.about?.replace(/\[.*?\]/g,'').trim().substring(0,500)||extra.story;
+    // AI translate story + generate skills in parallel
+    const [translatedAbout, aiSkills] = await Promise.all([
+      about.length>20 ? translateWithAI(about,currentLang,'char') : Promise.resolve(about),
+      generateSkillsWithAI(name, about, currentLang)
+    ]);
+    about = translatedAbout;
+    const skills = aiSkills || extra.skills;
+    const nicknames=c?.nicknames?.length?c.nicknames.slice(0,3).join(', '):'';
+    document.getElementById('charModalContent').innerHTML=`
+      <div style="padding:16px;"><div class="char-detail">
+        <div class="char-detail-header">
+          ${img?`<img class="char-detail-img" src="${img}">`:`<div class="char-detail-img-ph">👤</div>`}
+          <div class="char-detail-meta">
+            <h3>${name}</h3>
+            <p style="color:var(--muted);font-size:0.78rem">${role==='Main'?'Ana Karakter':role==='Supporting'?'Destek Karakter':'Karakter'}</p>
+            ${nicknames?`<p style="color:var(--cyan);font-size:0.72rem;margin-top:3px">💬 ${nicknames}</p>`:''}
+            <div style="display:inline-block;margin-top:6px;background:rgba(0,245,212,0.1);border:1px solid rgba(0,245,212,0.2);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:var(--cyan);">✅ AI Çeviri & Skill</div>
+          </div>
+        </div>
+        <div class="modal-section">📖 ${t('charStory')}</div>
+        <p class="char-story">${about}</p>
+        <div class="modal-section">⚡ ${t('skills')}</div>
+        <div class="skill-list">${skills.map(s=>`
+          <div class="skill-item">
+            <div class="skill-icon">${s.icon}</div>
+            <div class="skill-text"><div class="sn">${s.name}</div><div class="sd">${s.desc}</div></div>
+            <div class="skill-power" style="color:${s.power>=90?'var(--cyan)':s.power>=75?'var(--gold)':'var(--accent)'};">${s.power}/100</div>
+          </div>`).join('')}
+        </div>
+      </div></div>`;
+  }catch(e){
+    document.getElementById('charModalContent').innerHTML=`
+      <div style="padding:16px;">
+        <div class="char-detail">
+          <div class="char-detail-header">
+            ${img?`<img class="char-detail-img" src="${img}">`:`<div class="char-detail-img-ph">👤</div>`}
+            <div class="char-detail-meta"><h3>${name}</h3><p style="color:var(--muted);font-size:0.78rem">${role}</p></div>
+          </div>
+          <div class="modal-section">📖 ${t('charStory')}</div>
+          <p class="char-story">${extra.story}</p>
+          <div class="modal-section">⚡ ${t('skills')}</div>
+          <div class="skill-list">${extra.skills.map(s=>`<div class="skill-item"><div class="skill-icon">${s.icon}</div><div class="skill-text"><div class="sn">${s.name}</div><div class="sd">${s.desc}</div></div><div class="skill-power">${s.power}/100</div></div>`).join('')}</div>
+        </div>
+      </div>`;
+  }
+}
+function closeCharModal(){document.getElementById('charModal').classList.remove('show');document.body.style.overflow='';}
+
+// ===================== CALENDAR =====================
+async function loadCal(){
+  const days=['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  try{
+    const data=await api('/schedules?limit=7');
+    // Fallback: just show schedule by day
+    const calDiv=document.getElementById('calContent');
+    calDiv.innerHTML='';
+    for(const day of days){
+      try{
+        const d=await api(`/schedules?filter=${day}&limit=5`);
+        const animes=d.data||[];
+        if(!animes.length)continue;
+        calDiv.innerHTML+=`
+          <div class="cal-day">
+            <div class="cal-day-header">
+              <div class="cal-day-name">📅 ${t(day)}</div>
+              <div class="cal-day-badge">${animes.length} ${t('episode')}</div>
+            </div>
+            ${animes.map(a=>`
+            <div class="cal-anime" onclick="openAnime(${a.mal_id})">
+              ${a.images?.jpg?.small_image_url?`<img src="${a.images.jpg.small_image_url}" style="width:36px;height:50px;object-fit:cover;border-radius:6px;">`:`<div style="width:36px;height:50px;background:var(--surface);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.2rem">🎌</div>`}
+              <div class="cal-anime-info">
+                <h4>${a.title}</h4>
+                <p>${a.studios?.[0]?.name||''} · ⭐${a.score||'?'}</p>
+              </div>
+              <div class="cal-ep">${a.episodes?a.episodes+' Ep':'?'}</div>
+            </div>`).join('')}
+          </div>`;
+        await new Promise(r=>setTimeout(r,300));
+      }catch(e){}
+    }
+    if(!calDiv.innerHTML)calDiv.innerHTML='<div class="loading">Takvim yüklenemedi 😔</div>';
+  }catch(e){document.getElementById('calContent').innerHTML='<div class="loading">Yüklenemedi 😔</div>';}
+}
+
+// ===================== COMPARE =====================
+let compareSlots={1:null,2:null};
+let activeSlot=null;
+
+function openSlotSearch(n){
+  activeSlot=n;
+  document.getElementById('slotSearchWrap').style.display='block';
+  document.getElementById('slotSearchInput').focus();
+  const inp=document.getElementById('slotSearchInput');
+  inp.oninput=()=>{
+    clearTimeout(searchTimeout);
+    const q=inp.value.trim();
+    if(!q){document.getElementById('slotDrop').innerHTML='';return;}
+    searchTimeout=setTimeout(()=>fetchSlotSearch(q),500);
+  };
+}
+
+async function fetchSlotSearch(q){
+  const drop=document.getElementById('slotDrop');
+  try{
+    const data=await fetch(`${API}/anime?q=${encodeURIComponent(q)}&limit=5`).then(r=>r.json());
+    drop.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:6px;">${(data.data||[]).map(a=>`
+      <div class="sdrop-item" onclick="pickSlot(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}',${a.score||0})">
+        ${a.images?.jpg?.small_image_url?`<img class="sdrop-img" src="${a.images.jpg.small_image_url}">`:`<div class="sdrop-img" style="display:flex;align-items:center;justify-content:center">🎌</div>`}
+        <div class="sdrop-info"><h4>${a.title}</h4><p>${a.year||''}</p></div>
+        <div class="sdrop-score">⭐${a.score||'?'}</div>
+      </div>`).join('')}</div>`;
+  }catch(e){}
+}
+
+async function pickSlot(id,title,img,score){
+  compareSlots[activeSlot]={id,title,img,score};
+  document.getElementById('slotSearchWrap').style.display='none';
+  document.getElementById('slotDrop').innerHTML='';
+  renderSlots();
+  if(compareSlots[1]&&compareSlots[2])await renderCompare();
+}
+
+function cancelSlot(){
+  document.getElementById('slotSearchWrap').style.display='none';
+  document.getElementById('slotDrop').innerHTML='';
+}
+
+function renderSlots(){
+  [1,2].forEach(n=>{
+    const slot=document.getElementById('slot'+n);
+    const s=compareSlots[n];
+    if(s){
+      slot.className='compare-slot filled';
+      slot.innerHTML=`${s.img?`<img src="${s.img}" style="width:60px;height:85px;object-fit:cover;border-radius:8px;">`:'🎌'}
+        <h4 style="font-size:0.75rem;margin-top:6px">${s.title}</h4>
+        <p style="color:var(--gold);font-size:0.78rem;font-weight:700">⭐${s.score}</p>
+        <button class="remove-btn" onclick="event.stopPropagation();removeSlot(${n})">✕ Kaldır</button>`;
+      slot.onclick=null;
+    } else {
+      slot.className='compare-slot';
+      slot.innerHTML=`<div style="font-size:2rem">➕</div><p style="font-size:0.78rem;color:var(--muted)">${t('selectAnime')}</p>`;
+      slot.onclick=()=>openSlotSearch(n);
+    }
+  });
+}
+
+function removeSlot(n){compareSlots[n]=null;renderSlots();document.getElementById('compareResult').innerHTML='';}
+
+async function renderCompare(){
+  const [a1,a2]=await Promise.all([
+    api(`/anime/${compareSlots[1].id}`),
+    api(`/anime/${compareSlots[2].id}`)
+  ]);
+  const d1=a1.data,d2=a2.data;
+  const rows=[
+    ['IMDb Puanı',d1.score||0,d2.score||0],
+    ['Popülerlik Sırası',d2.popularity||999,d1.popularity||999], // lower=better reversed
+    ['Favori Sayısı',d1.favorites||0,d2.favorites||0],
+    ['Üye Sayısı',d1.members||0,d2.members||0],
+    ['Bölüm Sayısı',d1.episodes||0,d2.episodes||0],
+  ];
+  document.getElementById('compareResult').innerHTML=`
+    <div class="compare-result">
+      <div style="text-align:center;margin-bottom:14px;font-family:'Orbitron',monospace;font-size:0.8rem;color:var(--muted)">⚔️ KARŞILAŞTIRMA</div>
+      ${rows.map(([label,v1,v2])=>{
+        const w1=v1>v2,w2=v2>v1;
+        return `<div style="margin-bottom:12px;">
+          <div style="font-size:0.7rem;color:var(--muted);text-align:center;margin-bottom:4px">${label}</div>
+          <div class="compare-row">
+            <div class="compare-val ${w1?'compare-win':'compare-lose'}">${v1}</div>
+            <div style="font-size:0.8rem;color:var(--border)">vs</div>
+            <div class="compare-val ${w2?'compare-win':'compare-lose'}">${v2}</div>
+          </div>
+        </div>`;
+      }).join('')}
+      <div style="text-align:center;margin-top:14px;padding:12px;background:rgba(0,230,118,0.1);border-radius:12px;border:1px solid rgba(0,230,118,0.2);">
+        <div style="font-size:0.7rem;color:var(--muted);margin-bottom:4px">🏆 KAZANAN</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--green)">${(d1.score||0)>=(d2.score||0)?d1.title:d2.title}</div>
+      </div>
+    </div>`;
+}
+
+// ===================== FAVORITES PAGE =====================
+function renderFavs(){
+  const grid=document.getElementById('favGrid');
+  const stats=document.getElementById('favStats');
+  if(!favs.length){
+    stats.innerHTML='';
+    grid.innerHTML=`<div class="fav-empty"><div class="emoji">💔</div><h3>${t('noFavs')}</h3><p>${t('noFavsDesc')}</p></div>`;
+    return;
+  }
+  const avg=(favs.reduce((s,f)=>s+(f.score||0),0)/favs.length).toFixed(1);
+  stats.innerHTML=`
+    <div class="fav-stat"><div class="val">${favs.length}</div><div class="lbl">${t('totalFavs')}</div></div>
+    <div class="fav-stat"><div class="val">${avg}</div><div class="lbl">${t('avgScore')}</div></div>
+    <div class="fav-stat"><div class="val">❤️</div><div class="lbl">${t('favs')}</div></div>`;
+  grid.innerHTML=`<div class="anime-grid">${favs.map(a=>`
+    <div class="anime-card" onclick="openAnime(${a.id})">
+      <button class="fav-btn active" onclick="event.stopPropagation();removeFavDirect(${a.id})">❤️</button>
+      ${a.image?`<img class="anime-thumb" src="${a.image}" loading="lazy">`:`<div class="anime-thumb-ph">🎌</div>`}
+      <div class="anime-info"><h3>${a.title}</h3><div class="anime-score">⭐${a.score||'?'}</div></div>
+    </div>`).join('')}</div>`;
+}
+
+function removeFavDirect(id){
+  favs=favs.filter(f=>f.id!==id);
+  localStorage.setItem('hasfavs',JSON.stringify(favs));
+  updateFavBadge(); renderFavs();
+  showToast('💔 Favorilerden çıkarıldı');
+}
+
+// ===================== AUTH / PROFILE =====================
+let currentUser = JSON.parse(localStorage.getItem('hasuser')||'null');
+const RANKS=[
+  {min:0,name:'Yeni Otaku',icon:'🌱'},
+  {min:5,name:'Anime Sever',icon:'⭐'},
+  {min:10,name:'Otaku',icon:'🔥'},
+  {min:20,name:'Weeb',icon:'💎'},
+  {min:30,name:'Anime Tanrısı',icon:'👑'},
+];
+function getRank(n){
+  let r=RANKS[0];
+  for(const x of RANKS) if(n>=x.min) r=x;
+  return r;
+}
+
+function renderProfile(){
+  const el=document.getElementById('profileContent');
+  if(!currentUser){
+    // Show login/register
+    el.innerHTML=`
+      <div class="auth-wrap">
+        <div class="section-title" style="justify-content:center;margin-bottom:20px;">
+          <div class="dot dot-cyan"></div>
+          <span style="font-family:'Orbitron',monospace">HasAnime Hesabı</span>
+        </div>
+        <div style="text-align:center;font-size:3rem;margin-bottom:16px;">🎌</div>
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="loginTab" onclick="switchAuthTab('login')">Giriş Yap</button>
+          <button class="auth-tab" id="registerTab" onclick="switchAuthTab('register')">Kayıt Ol</button>
+        </div>
+        <div id="authError" class="auth-error"></div>
+        <div id="authSuccess" class="auth-success"></div>
+        <div id="loginForm" class="auth-form">
+          <input class="auth-input" id="loginEmail" type="email" placeholder="E-posta">
+          <input class="auth-input" id="loginPass" type="password" placeholder="Şifre">
+          <button class="auth-btn" onclick="doLogin()">🚀 Giriş Yap</button>
+        </div>
+        <div id="registerForm" class="auth-form" style="display:none">
+          <input class="auth-input" id="regName" type="text" placeholder="Kullanıcı Adı">
+          <input class="auth-input" id="regEmail" type="email" placeholder="E-posta">
+          <input class="auth-input" id="regPass" type="password" placeholder="Şifre (min 6 karakter)">
+          <button class="auth-btn" onclick="doRegister()">✨ Kayıt Ol</button>
+        </div>
+        <div class="auth-divider" style="margin-top:16px">veya</div>
+        <button class="auth-btn" style="background:var(--card);border:2px solid var(--border);color:var(--text);margin-top:12px;" onclick="guestMode()">
+          👻 Misafir Olarak Devam Et
+        </button>
+      </div>`;
+  } else {
+    const rank=getRank(favs.length);
+    const joinDate=new Date(currentUser.joined).toLocaleDateString('tr-TR');
+    el.innerHTML=`
+      <div class="profile-card">
+        <div class="profile-avatar">${currentUser.avatar||'🎌'}</div>
+        <div class="profile-name">${currentUser.name}</div>
+        <div class="profile-email">${currentUser.email}</div>
+        <div style="margin-bottom:12px;">
+          <span class="anime-rank-badge">${rank.icon} ${rank.name}</span>
+        </div>
+        <div class="profile-stats">
+          <div class="profile-stat"><div class="val">${favs.length}</div><div class="lbl">Favori</div></div>
+          <div class="profile-stat"><div class="val">${currentUser.watched||0}</div><div class="lbl">İzlendi</div></div>
+          <div class="profile-stat"><div class="val">${rank.icon}</div><div class="lbl">Rütbe</div></div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--muted)">📅 Katılım: ${joinDate}</div>
+      </div>
+      <div class="profile-menu">
+        <div class="profile-menu-item" onclick="goPage('favs',document.querySelectorAll('.nav-item')[1])">
+          <span class="mi-icon">❤️</span>
+          <span class="mi-text">Favori Listesi (${favs.length})</span>
+          <span class="mi-arrow">›</span>
+        </div>
+        <div class="profile-menu-item" onclick="openLang()">
+          <span class="mi-icon">🌐</span>
+          <span class="mi-text">Dil Ayarı</span>
+          <span class="mi-arrow">›</span>
+        </div>
+        <div class="profile-menu-item" onclick="changeAvatar()">
+          <span class="mi-icon">🎨</span>
+          <span class="mi-text">Avatar Değiştir</span>
+          <span class="mi-arrow">›</span>
+        </div>
+        <div class="profile-menu-item" onclick="shareProfile()">
+          <span class="mi-icon">📤</span>
+          <span class="mi-text">Profili Paylaş</span>
+          <span class="mi-arrow">›</span>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">🚪 Çıkış Yap</button>`;
+  }
+}
+
+function switchAuthTab(tab){
+  document.getElementById('loginTab').classList.toggle('active',tab==='login');
+  document.getElementById('registerTab').classList.toggle('active',tab==='register');
+  document.getElementById('loginForm').style.display=tab==='login'?'flex':'none';
+  document.getElementById('registerForm').style.display=tab==='register'?'flex':'none';
+  document.getElementById('authError').style.display='none';
+}
+
+function showAuthError(msg){
+  const el=document.getElementById('authError');
+  el.textContent=msg; el.style.display='block';
+  setTimeout(()=>el.style.display='none',3000);
+}
+
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  if(!email||!pass){showAuthError('Tüm alanları doldurun!');return;}
+  const btn=document.querySelector('#loginForm .auth-btn');
+  btn.textContent='⏳ Giriş yapılıyor...'; btn.disabled=true;
+  try{
+    await window.fbSignIn(window.fbAuth, email, pass);
+    showToast('🎉 Hoş geldin!');
+    closeAnimeModal && closeAnimeModal();
+  }catch(e){
+    const msg = e.code==='auth/invalid-credential'?'E-posta veya şifre hatalı!':
+                e.code==='auth/user-not-found'?'Kullanıcı bulunamadı!':
+                e.code==='auth/too-many-requests'?'Çok fazla deneme, bekle!':'Giriş hatası!';
+    showAuthError(msg);
+  }
+  btn.textContent='🚀 Giriş Yap'; btn.disabled=false;
+}
+
+async function doRegister(){
+  const name=document.getElementById('regName').value.trim();
+  const email=document.getElementById('regEmail').value.trim();
+  const pass=document.getElementById('regPass').value;
+  if(!name||!email||!pass){showAuthError('Tüm alanları doldurun!');return;}
+  if(pass.length<6){showAuthError('Şifre en az 6 karakter!');return;}
+  const btn=document.querySelector('#registerForm .auth-btn');
+  btn.textContent='⏳ Kayıt olunuyor...'; btn.disabled=true;
+  try{
+    const avatars=['🎌','🔥','⚡','🌊','🌸','💎','👑','🦋','🐉','⚔️'];
+    const avatar=avatars[Math.floor(Math.random()*avatars.length)];
+    const cred = await window.fbCreateUser(window.fbAuth, email, pass);
+    await window.fbUpdateProfile(cred.user, {displayName: name});
+    const userData = {name, email, avatar, joined: Date.now(), watched:0, favs:[], watchlist:[]};
+    await window.fbSetDoc(window.fbDoc(window.fbDb,'users',cred.user.uid), userData);
+    showToast('🎉 Hesap oluşturuldu! Hoş geldin '+name+'!');
+  }catch(e){
+    const msg = e.code==='auth/email-already-in-use'?'Bu e-posta zaten kayıtlı!':
+                e.code==='auth/weak-password'?'Şifre çok zayıf!':'Kayıt hatası!';
+    showAuthError(msg);
+  }
+  btn.textContent='✨ Kayıt Ol'; btn.disabled=false;
+}
+
+function guestMode(){
+  currentUser={name:'Misafir',email:'',avatar:'👻',joined:Date.now(),watched:0,guest:true};
+  localStorage.setItem('hasuser',JSON.stringify(currentUser));
+  showToast('👻 Misafir olarak devam ediliyor');
+  renderProfile();
+}
+
+async function doLogout(){
+  try{
+    await window.fbSignOut(window.fbAuth);
+    currentUser=null;
+    localStorage.removeItem('hasuser');
+    showToast('🚪 Çıkış yapıldı');
+    renderProfile();
+  }catch(e){ showToast('Hata oluştu'); }
+}
+
+async function saveUserData(){
+  if(!currentUser?.uid) return;
+  try{
+    await window.fbUpdateDoc(window.fbDoc(window.fbDb,'users',currentUser.uid),{
+      favs: favs,
+      watchlist: watchlist,
+      watched: currentUser.watched||0
+    });
+  }catch(e){ console.log(e); }
+}
+
+const AVATARS=['🎌','🔥','⚡','🌊','🌸','💎','👑','🦋','🐉','⚔️','🎭','🌙','☀️','🎯','🏆'];
+function changeAvatar(){
+  const pick=AVATARS[Math.floor(Math.random()*AVATARS.length)];
+  currentUser.avatar=pick;
+  localStorage.setItem('hasuser',JSON.stringify(currentUser));
+  const users=JSON.parse(localStorage.getItem('hasusers')||'[]');
+  const idx=users.findIndex(u=>u.email===currentUser.email);
+  if(idx>=0){users[idx].avatar=pick;localStorage.setItem('hasusers',JSON.stringify(users));}
+  showToast('🎨 Avatar değiştirildi: '+pick);
+  renderProfile();
+}
+
+function shareProfile(){
+  const rank=getRank(favs.length);
+  const text=`HasAnime'de ${rank.icon} ${rank.name} rütbesindeyim! ${favs.length} favori animem var. Sende dene: hasan4i.github.io/Hasanime-`;
+  if(navigator.share){navigator.share({title:'HasAnime Profilim',text});}
+  else{navigator.clipboard?.writeText(text);showToast('📋 Profil linki kopyalandı!');}
+}
+
+// ===================== NEWS =====================
+const NEWS_DATA = [
+  {tag:'Yeni Sezon',title:'Demon Slayer: Infinity Castle Filmi 2025\'te Geliyor!',date:'20 Mar 2026',desc:'Ufotable\'ın merakla beklenen Infinity Castle film serisi için resmi tarih açıklandı. Hayranlar büyük heyecanla bekliyor.',img:'https://cdn.myanimelist.net/images/anime/1286/99889l.jpg',link:'https://myanimelist.net'},
+  {tag:'Duyuru',title:'One Piece 1100. Bölüm Özel Animasyonla Yayında',date:'18 Mar 2026',desc:'Toei Animation, One Piece\'in 1100. bölümü için özel animasyon tarzı kullandı. Hayranlar sosyal medyada çıldırdı.',img:'https://cdn.myanimelist.net/images/anime/6/73245l.jpg',link:'https://myanimelist.net'},
+  {tag:'Haber',title:'Jujutsu Kaisen Manga\'sı Tamamlandı',date:'15 Mar 2026',desc:'Gege Akutami\'nin yazdığı Jujutsu Kaisen manga serisi final bölümüyle sona erdi. Anime adaptasyonu devam edecek.',img:'https://cdn.myanimelist.net/images/anime/1171/109222l.jpg',link:'https://myanimelist.net'},
+  {tag:'İnceleme',title:'Frieren: Beyond Journey\'s End - Anime of the Year',date:'10 Mar 2026',desc:'Sousou no Frieren, 2024\'ün en iyi animesi seçildi. Kritikler ve izleyiciler oybirliğiyle bu kararı destekledi.',img:'https://cdn.myanimelist.net/images/anime/1015/138006l.jpg',link:'https://myanimelist.net'},
+  {tag:'Yeni Sezon',title:'Chainsaw Man Bölüm 2 Anime Duyurusu',date:'5 Mar 2026',desc:'MAPPA, Chainsaw Man\'ın ikinci bölümünün anime adaptasyonunu duyurdu. Hayranlar yoğun şekilde heyecanlandı.',img:'https://cdn.myanimelist.net/images/anime/1806/126216l.jpg',link:'https://myanimelist.net'},
+  {tag:'Özel',title:'Attack on Titan Özel Bölümü Nisan\'da',date:'1 Mar 2026',desc:'MAPPA, Attack on Titan\'ın final sezonunun özel bölümünü Nisan ayında yayınlayacağını açıkladı.',img:'https://cdn.myanimelist.net/images/anime/1000/110531l.jpg',link:'https://myanimelist.net'},
+];
+
+function renderNews(){
+  document.getElementById('newsContent').innerHTML = NEWS_DATA.map(n=>`
+    <div class="news-card" onclick="window.open('${n.link}','_blank')">
+      <img class="news-card-img" src="${n.img}" onerror="this.style.display='none'">
+      <div class="news-card-body">
+        <div class="news-card-tag">${n.tag}</div>
+        <div class="news-card-title">${n.title}</div>
+        <div class="news-card-date">📅 ${n.date}</div>
+        <div class="news-card-desc">${n.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ===================== QUIZ =====================
+let quizAnimes=[], quizIdx=0, quizScore=0, quizAnswered=false;
+
+async function initQuiz(){
+  document.getElementById('quizContent').innerHTML=`<div class="loading"><div class="spinner"></div>Quiz hazırlanıyor...</div>`;
+  try{
+    const data=await api('/top/anime?limit=25');
+    quizAnimes=(data.data||[]).filter(a=>a.synopsis&&a.images?.jpg?.image_url);
+    quizIdx=0; quizScore=0;
+    renderQuiz();
+  }catch(e){document.getElementById('quizContent').innerHTML='<div class="loading">Yüklenemedi 😔</div>';}
+}
+
+function renderQuiz(){
+  if(quizIdx>=10){
+    const pct=Math.round((quizScore/10)*100);
+    const emoji=pct>=80?'🏆':pct>=60?'😊':pct>=40?'😅':'😔';
+    const msg=pct>=80?'Mükemmel! Gerçek bir otaku!':pct>=60?'İyi iş! Devam et!':pct>=40?'Fena değil, daha çok anime izle!':'Biraz daha çalışman lazım 😄';
+    document.getElementById('quizContent').innerHTML=`
+      <div class="quiz-result">
+        <div class="quiz-result-emoji">${emoji}</div>
+        <h2>${quizScore}/10 Doğru</h2>
+        <p>${msg}</p>
+        <button class="quiz-restart" onclick="initQuiz()">🔄 Tekrar Oyna</button>
+      </div>`;
+    return;
+  }
+
+  const anime=quizAnimes[quizIdx];
+  // Pick 3 wrong answers
+  const others=quizAnimes.filter(a=>a.mal_id!==anime.mal_id).sort(()=>Math.random()-0.5).slice(0,3);
+  const options=[anime,...others].sort(()=>Math.random()-0.5);
+  quizAnswered=false;
+
+  document.getElementById('quizContent').innerHTML=`
+    <div class="quiz-wrap">
+      <div class="quiz-score-bar">
+        <div><div class="quiz-score-label">Soru</div><div class="quiz-score-val">${quizIdx+1}/10</div></div>
+        <div><div class="quiz-score-label">Puan</div><div class="quiz-score-val" style="color:var(--cyan)">${quizScore}</div></div>
+        <div><div class="quiz-score-label">Kalan</div><div class="quiz-score-val" style="color:var(--muted)">${10-quizIdx}</div></div>
+      </div>
+      <div class="quiz-question-card">
+        <img class="quiz-img" src="${anime.images.jpg.large_image_url||anime.images.jpg.image_url}" onerror="this.style.height='0'">
+        <div class="quiz-q-num">Soru ${quizIdx+1}</div>
+        <div class="quiz-q-text">Bu anime hangisi?</div>
+        <div class="quiz-options">
+          ${options.map(o=>`
+          <button class="quiz-option" id="qopt-${o.mal_id}" onclick="answerQuiz(${o.mal_id},${anime.mal_id},this)">
+            ${o.title}
+          </button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function answerQuiz(picked, correct, btn){
+  if(quizAnswered) return;
+  quizAnswered=true;
+  const correctBtn=document.getElementById('qopt-'+correct);
+  document.querySelectorAll('.quiz-option').forEach(b=>b.disabled=true);
+  if(picked===correct){ btn.classList.add('correct'); quizScore++; }
+  else{ btn.classList.add('wrong'); if(correctBtn) correctBtn.classList.add('correct'); }
+  setTimeout(()=>{ quizIdx++; renderQuiz(); }, 1500);
+}
+
+// ===================== BATTLE =====================
+let battleSlots={1:null,2:null};
+let activeBattleSlot=null;
+
+function renderBattle(){
+  const el=document.getElementById('battleContent');
+  el.innerHTML=`
+    <div class="battle-wrap">
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:16px;text-align:center">İki karakter seç ve kim kazanır gör! 🥊</p>
+      <div class="battle-arena">
+        ${[1,2].map(n=>{
+          const s=battleSlots[n];
+          return `<div class="battle-slot ${s?'filled':''}" id="bslot${n}" onclick="${s?'':'openBattleSearch('+n+')'}">
+            ${s?`
+              <img src="${s.img}" onerror="this.src=''">
+              <h4>${s.name}</h4>
+              <p style="color:var(--gold);font-size:0.72rem">⭐ ${s.power||75}/100</p>
+              <button class="battle-remove" onclick="event.stopPropagation();removeBattleSlot(${n})">✕ Kaldır</button>
+            `:`<div style="font-size:2rem">➕</div><p style="font-size:0.75rem;color:var(--muted)">Karakter Seç</p>`}
+          </div>`;
+        }).join('<div class="battle-vs">VS</div>')}
+      </div>
+      <div id="battleSearch" style="display:none;margin-bottom:16px;">
+        <div class="search-bar">
+          <input type="text" id="battleSearchInput" placeholder="Anime ara, karakter seç...">
+          <button onclick="cancelBattleSearch()" style="background:var(--muted);">✕</button>
+        </div>
+        <div id="battleSearchDrop"></div>
+      </div>
+      <button class="battle-btn" onclick="startBattle()" ${(!battleSlots[1]||!battleSlots[2])?'disabled':''}>
+        ⚔️ SAVAŞI BAŞLAT
+      </button>
+      <div id="battleResult"></div>
+    </div>`;
+}
+
+async function openBattleSearch(n){
+  activeBattleSlot=n;
+  document.getElementById('battleSearch').style.display='block';
+  const inp=document.getElementById('battleSearchInput');
+  inp.focus();
+  inp.oninput=async()=>{
+    const q=inp.value.trim();
+    if(!q){document.getElementById('battleSearchDrop').innerHTML='';return;}
+    const data=await fetch(`${API}/anime?q=${encodeURIComponent(q)}&limit=4`).then(r=>r.json());
+    const animes=data.data||[];
+    document.getElementById('battleSearchDrop').innerHTML=`
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:6px;">
+        ${animes.map(a=>`
+        <div class="sdrop-item" onclick="pickBattleAnime(${a.mal_id},'${(a.title||'').replace(/'/g,"\\'")}','${a.images?.jpg?.image_url||''}')">
+          ${a.images?.jpg?.small_image_url?`<img class="sdrop-img" src="${a.images.jpg.small_image_url}">`:'<div class="sdrop-img">🎌</div>'}
+          <div class="sdrop-info"><h4>${a.title}</h4><p>${a.year||''}</p></div>
+        </div>`).join('')}
+      </div>`;
+  };
+}
+
+async function pickBattleAnime(animeId, animeTitle, animeImg){
+  document.getElementById('battleSearch').style.display='none';
+  document.getElementById('battleSearchDrop').innerHTML='';
+  // Get characters from this anime
+  try{
+    const data=await api(`/anime/${animeId}/characters`);
+    const chars=(data.data||[]).filter(c=>c.role==='Main').slice(0,1);
+    if(chars.length){
+      const c=chars[0];
+      const skills=getSkills(c.character.name);
+      const avgPower=Math.round(skills.reduce((s,sk)=>s+(sk.power||75),0)/skills.length);
+      battleSlots[activeBattleSlot]={
+        id:c.character.mal_id,
+        name:c.character.name,
+        img:c.character.images?.jpg?.image_url||animeImg,
+        anime:animeTitle,
+        power:avgPower,
+        skills:skills
+      };
+    } else {
+      battleSlots[activeBattleSlot]={id:animeId,name:animeTitle,img:animeImg,anime:animeTitle,power:75,skills:SKILL_DB['default']};
+    }
+  }catch(e){
+    battleSlots[activeBattleSlot]={id:animeId,name:animeTitle,img:animeImg,anime:animeTitle,power:75,skills:SKILL_DB['default']};
+  }
+  renderBattle();
+}
+
+function cancelBattleSearch(){
+  document.getElementById('battleSearch').style.display='none';
+}
+
+function removeBattleSlot(n){
+  battleSlots[n]=null;
+  renderBattle();
+}
+
+function startBattle(){
+  const a=battleSlots[1], b=battleSlots[2];
+  if(!a||!b) return;
+
+  // Calculate battle score
+  const scoreA = a.power + Math.floor(Math.random()*30);
+  const scoreB = b.power + Math.floor(Math.random()*30);
+  const winner = scoreA>=scoreB ? a : b;
+  const loser = scoreA>=scoreB ? b : a;
+  const wScore = Math.max(scoreA,scoreB);
+  const lScore = Math.min(scoreA,scoreB);
+
+  document.getElementById('battleResult').innerHTML=`
+    <div class="battle-result">
+      <div style="font-size:0.7rem;color:var(--gold);font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">🏆 KAZANAN</div>
+      ${winner.img?`<img class="battle-winner-img" src="${winner.img}" onerror="this.style.display='none'">`:''}
+      <div class="battle-winner-name">${winner.name}</div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">${winner.anime}</div>
+      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:16px">
+        Güç farkı: <span style="color:var(--gold);font-weight:700">${wScore-lScore} puan</span>
+      </div>
+      <div class="battle-stats">
+        <div>
+          <div class="battle-stat-val battle-win-val">${wScore}</div>
+          <div class="battle-stat-label">${winner.name.split(' ')[0]}</div>
+        </div>
+        <div style="font-size:0.7rem;color:var(--muted);display:flex;align-items:center">VS</div>
+        <div>
+          <div class="battle-stat-val battle-lose-val">${lScore}</div>
+          <div class="battle-stat-label">${loser.name.split(' ')[0]}</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <button style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 20px;color:var(--text);font-size:0.82rem;cursor:pointer;" onclick="battleSlots={1:null,2:null};renderBattle()">🔄 Tekrar Dene</button>
+      </div>
+    </div>`;
+}
+
+// ===================== WATCHLIST =====================
+let watchlist = JSON.parse(localStorage.getItem('haswatchlist')||'[]');
+const WL_STATUSES = ['İzleniyor','Tamamlandı','Planlandı'];
+const WL_STATUS_CLASSES = ['wl-watching','wl-completed','wl-planned'];
+
+function addToWatchlist(anime, status='Planlandı'){
+  if(watchlist.find(w=>w.id===anime.id)){
+    showToast('📋 Zaten listede!'); return;
+  }
+  watchlist.push({...anime, status, addedAt:Date.now()});
+  localStorage.setItem('haswatchlist',JSON.stringify(watchlist));
+  saveUserData();
+  showToast('📋 İzleme listesine eklendi!');
+  renderWatchlist();
+}
+
+function removeFromWatchlist(id){
+  watchlist=watchlist.filter(w=>w.id!==id);
+  localStorage.setItem('haswatchlist',JSON.stringify(watchlist));
+  saveUserData();
+  renderWatchlist();
+  showToast('🗑️ Listeden çıkarıldı');
+}
+
+function changeWLStatus(id){
+  const item=watchlist.find(w=>w.id===id);
+  if(!item) return;
+  const idx=WL_STATUSES.indexOf(item.status);
+  item.status=WL_STATUSES[(idx+1)%WL_STATUSES.length];
+  localStorage.setItem('haswatchlist',JSON.stringify(watchlist));
+  saveUserData();
+  renderWatchlist();
+}
+
+function renderWatchlist(){
+  const el=document.getElementById('watchlistContent');
+  if(!watchlist.length){
+    el.innerHTML=`<div class="wl-empty"><div class="emoji">📋</div><p>Henüz liste boş!</p><p style="font-size:0.8rem;margin-top:8px;color:var(--muted)">Anime detayından listeye ekle</p></div>`;
+    return;
+  }
+  const byStatus={};
+  WL_STATUSES.forEach(s=>byStatus[s]=[]);
+  watchlist.forEach(w=>{ if(byStatus[w.status]) byStatus[w.status].push(w); else byStatus['Planlandı'].push(w); });
+
+  el.innerHTML=WL_STATUSES.map((status,si)=>{
+    const items=byStatus[status];
+    if(!items.length) return '';
+    return `
+      <div style="margin-bottom:20px;">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;">${status} (${items.length})</div>
+        ${items.map(w=>`
+        <div class="wl-item">
+          ${w.image?`<img src="${w.image}" onerror="this.style.display='none'">`:'<div style="width:42px;height:58px;background:var(--surface);border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">🎌</div>'}
+          <div class="wl-item-info">
+            <h4>${w.title}</h4>
+            <p>⭐ ${w.score||'?'}</p>
+          </div>
+          <button class="wl-status ${WL_STATUS_CLASSES[si]}" onclick="changeWLStatus(${w.id})">${status}</button>
+          <button class="wl-remove" onclick="removeFromWatchlist(${w.id})">🗑️</button>
+        </div>`).join('')}
+      </div>`;
+  }).join('');
+}
+
+// ===================== UPDATE goPage =====================
+const _origGoPage2=goPage;
+goPage=function(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  const page=document.getElementById('page-'+id);
+  if(page) page.classList.add('active');
+  if(btn) btn.classList.add('active');
+  window.scrollTo(0,0);
+  if(id==='favs') renderFavs();
+  if(id==='profile') renderProfile();
+  if(id==='news') renderNews();
+  if(id==='quiz') initQuiz();
+  if(id==='battle') renderBattle();
+  if(id==='watchlist') renderWatchlist();
+  if(id==='cal'&&!calLoaded){loadCal();calLoaded=true;}
+};
+
+// ===================== INIT =====================
+applyLang();
+updateFavBadge();
+loadTop();
+loadTrend(document.querySelector('.tab'),'bypopularity');
+document.getElementById('lang-'+currentLang)?.classList.add('active');
+</script>
+</body>
+</html>
